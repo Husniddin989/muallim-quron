@@ -1,8 +1,10 @@
 """Builds the app's assets from the source mushaf PDF and surah recitations.
 
 For every configured mushaf page it extracts the page image, finds the ayah-end
-markers by template matching and turns them into tappable ayah regions.  Every
-surah recitation is split into one file per ayah at the pauses between ayahs.
+markers by template matching and turns them into tappable ayah regions.  For
+every surah recitation it finds where the basmala and each ayah start and end,
+so the app can play one ayah out of the whole-surah file (which is served from
+Cloudflare R2, not bundled).
 
 Usage (needs numpy, scipy, pillow, plus pdfimages and ffmpeg on PATH):
     python prepare.py <source_dir> <assets_www_dir> [debug_dir]
@@ -320,28 +322,28 @@ def speech_chunks(src, dur, min_pause):
     return chunks
 
 
-def split_audio(surah, src, dst_dir, refs):
+def ayah_times(surah, src, refs):
+    """[start, end] seconds of the basmala and every ayah in the whole-surah file.
+
+    Each span runs from the middle of the pause before it to the middle of the
+    pause after it, so consecutive spans meet and playing on is seamless.
+    """
     dur = duration(src)
     for min_pause in MIN_PAUSES:
         chunks = speech_chunks(src, dur, min_pause)
         if len(chunks) >= SURAHS[surah][2] + 1:
             break
     parts, sizes = group_into_ayahs(surah, chunks, refs.get(str(surah)))
-
-    os.makedirs(dst_dir, exist_ok=True)
-    durations = []
+    times = []
     for i, (start, speech_end, pause_end) in enumerate(parts):
         a = 0.0 if i == 0 else (start + parts[i - 1][1]) / 2
         last = i == len(parts) - 1
         b = min(speech_end + 0.8, dur) if last else (speech_end + pause_end) / 2
-        out = os.path.join(dst_dir, f'{i:03d}.mp3')
-        subprocess.run(['ffmpeg', '-y', '-v', 'error', '-ss', f'{a:.3f}', '-to', f'{b:.3f}',
-                        '-i', src, '-map', '0:a', '-c', 'copy', out], check=True)
-        durations.append(round(b - a, 2))
+        times.append([round(a, 2), round(b, 2)])
     merged = [f'{a}' for a, k in enumerate(sizes) if k > 1 and a > 0]
     note = f' (ayahs read with an inner pause: {", ".join(merged)})' if merged else ''
-    print(f"surah {surah}: {len(parts)} audio files, pauses >= {min_pause}s{note}")
-    return durations
+    print(f"surah {surah}: {len(times)} spans, pauses >= {min_pause}s{note}")
+    return times
 
 
 def main():
@@ -388,7 +390,8 @@ def main():
         entry = {'n': n, 'ar': ar, 'uz': uz, 'ayahs': count, 'page': (first or on)[0]}
         mp3 = os.path.join(src, f'{n:03d}.mp3')
         if os.path.exists(mp3):
-            entry['durations'] = split_audio(n, mp3, os.path.join(www, 'audio', str(n)), refs)
+            entry['t'] = ayah_times(n, mp3, refs)
+            entry['size'] = os.path.getsize(mp3)
         surahs.append(entry)
 
     with open(os.path.join(www, 'data.js'), 'w', encoding='utf-8') as f:

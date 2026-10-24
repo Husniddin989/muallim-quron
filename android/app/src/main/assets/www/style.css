@@ -241,6 +241,23 @@ svg { width: 24px; height: 24px; fill: currentColor; flex: none; }
   color: var(--brand-text);
 }
 .listen:hover { background: var(--surface); }
+.dl {
+  width: 40px;
+  height: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.dl svg { width: 22px; height: 22px; }
+.dl:hover { background: var(--surface); }
+.dl.done { color: var(--brand-text); }
+.dl.busy { color: var(--brand-text); }
+.dl.armed { width: auto; padding: 0 10px; color: var(--rec); font-size: 13px; }
 .list-note { margin: 0; color: var(--muted); font-size: 13px; text-align: center; }
 
 /* reader */

@@ -7,7 +7,7 @@
 
   var bySurah = {};
   Q.surahs.forEach(function (s) { bySurah[s.n] = s; });
-  var playable = Q.surahs.filter(function (s) { return s.durations; });
+  var playable = Q.surahs.filter(function (s) { return s.t; });
   var pageNums = Object.keys(Q.pages).map(Number).sort(function (a, b) { return a - b; });
 
   var MODES = { ayah: 'Bitta oyat', surah: 'Butun sura', all: 'Davomli' };
@@ -16,6 +16,15 @@
     302, 322, 342, 362, 382, 402, 422, 442, 462, 482, 502, 522, 542, 562, 582];
   var MONTHS = ['yan', 'fev', 'mar', 'apr', 'may', 'iyun', 'iyul', 'avg', 'sen', 'okt', 'noy', 'dek'];
   var MAX_RECORDING_MS = 20 * 60 * 1000;
+  // whole-surah recitations (NNN.mp3) on Cloudflare R2; ?audio=<url> overrides it for testing
+  var AUDIO_BASE = (function () {
+    try {
+      var q = new URLSearchParams(location.search).get('audio');
+      if (q) return q.replace(/\/?$/, '/');
+    } catch (e) { /* no query string support */ }
+    return 'https://pub-81726ee9fa7c43fc978b4d5669dfb239.r2.dev/quron/';
+  })();
+  var isApp = !!(native && native.keepScreenOn);
 
   var store = {
     get: function (k, d) {
@@ -45,8 +54,12 @@
   // ---------- helpers
 
   function pad(n) { return ('00' + n).slice(-3); }
-  function audioUrl(s, a) { return 'audio/' + s + '/' + pad(a) + '.mp3'; }
-  function firstIndex(s) { return bySurah[s].durations.length > bySurah[s].ayahs ? 0 : 1; }
+  function hasBasmala(s) { return bySurah[s].t.length > bySurah[s].ayahs; }
+  function firstIndex(s) { return hasBasmala(s) ? 0 : 1; }
+  // [start, end] seconds of an ayah (0 = basmala) in the surah's recitation
+  function span(s, a) { return bySurah[s].t[hasBasmala(s) ? a : a - 1]; }
+  function remoteUrl(s) { return AUDIO_BASE + pad(s) + '.mp3'; }
+  function megabytes(bytes) { return (bytes / 1048576).toFixed(1) + ' MB'; }
   function lastIndex(s) { return bySurah[s].ayahs; }
   function key(s, a) { return s + ':' + a; }
   function juzOf(p) {
@@ -100,6 +113,7 @@
       play(s.n, firstIndex(s.n));
     });
     $('resume').addEventListener('click', function () { openReader(state.page); });
+    $('dlAll').addEventListener('click', downloadAll);
     updateResume();
   }
 
@@ -108,11 +122,14 @@
     li.className = 'surah';
     li.innerHTML =
       '<span class="num">' + s.n + '</span>' +
-      '<span class="meta"><b>' + s.uz + '</b><small>' + s.ayahs + ' oyat · ' + s.page + '-bet</small></span>' +
+      '<span class="meta"><b>' + s.uz + '</b><small>' + s.ayahs + ' oyat · ' +
+      (isApp ? megabytes(s.size) : s.page + '-bet') + '</small></span>' +
       '<span class="ar">' + s.ar + '</span>' +
+      (isApp ? '<button class="dl" data-s="' + s.n + '"></button>' : '') +
       '<button class="listen" aria-label="' + s.uz + ' surasini tinglash">' +
       '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>';
     li.addEventListener('click', function (e) {
+      if (e.target.closest('.dl')) { onDownloadTap(s.n, e.target.closest('.dl')); return; }
       focus = s.n;
       openReader(s.page);
       if (e.target.closest('.listen')) startSurah(s.n);
@@ -285,7 +302,7 @@
 
   function onRegionTap(s, a) {
     focus = s;
-    if (!bySurah[s] || !bySurah[s].durations) {
+    if (!bySurah[s] || !bySurah[s].t) {
       flash(key(s, a));
       toast('Bu sura audiosi hali qoʻshilmagan');
       return;
@@ -299,7 +316,7 @@
       startSurah(s);
       return;
     }
-    if (state.s === s && state.a === a && audio.src && !audio.ended) {
+    if (state.s === s && state.a === a && engine.end !== null) {
       if (audio.paused) audio.play(); else audio.pause();
       return;
     }
@@ -321,14 +338,48 @@
     playAt(s, a);
   }
 
+  // Plays one ayah out of the surah's recitation; engine.end is where it stops.
+  var engine = { url: null, end: null, seekTo: null, timer: 0 };
+
   function playAt(s, a) {
     focus = s;
+    var sp = span(s, a);
+    var url = downloads.urls[s] || remoteUrl(s);
+    if (!downloads.urls[s] && navigator.onLine === false) {
+      toast('Internet yoʻq. Bu surani tinglash uchun uni oldin yuklab oling.');
+      return;
+    }
+    // the next ayah of the same recitation simply plays on, without a seek
+    var flowing = engine.url === url && !audio.paused && Math.abs(audio.currentTime - sp[0]) < 0.4;
     state.s = s;
     state.a = a;
-    audio.src = audioUrl(s, a);
+    engine.end = sp[1];
+    if (engine.url !== url) {
+      engine.url = url;
+      engine.seekTo = sp[0];
+      audio.src = url;
+      audio.currentTime = sp[0];
+    } else if (!flowing) {
+      audio.currentTime = sp[0];
+    }
     var pr = audio.play();
     if (pr && pr.catch) pr.catch(function () { /* reported by the error event */ });
+    armEnd();
     showCurrent();
+  }
+
+  function armEnd() {
+    clearTimeout(engine.timer);
+    if (engine.end === null || audio.paused) return;
+    var left = engine.end - audio.currentTime;
+    if (left <= 0.04 && !audio.seeking) { ayahDone(); return; }
+    engine.timer = setTimeout(armEnd, Math.max(20, Math.min(left, 0.5) * 1000));
+  }
+
+  function ayahDone() {
+    clearTimeout(engine.timer);
+    engine.end = null;
+    afterAyah();
   }
 
   function showCurrent() {
@@ -370,15 +421,19 @@
       next = step(s, a, 1, true) ||
         (repeat ? [playable[0].n, firstIndex(playable[0].n)] : null);
     }
-    if (next) playAt(next[0], next[1]);
-    else if (practice.on) setPracticeTarget(practice.s, practice.a);
+    if (next) {
+      playAt(next[0], next[1]);
+    } else {
+      audio.pause();
+      if (practice.on) setPracticeTarget(practice.s, practice.a);
+    }
   }
 
   function firstSurahOnScreen() {
     var vp = visiblePages();
     for (var i = 0; i < vp.length; i++) {
       var list = surahsOnPage(vp[i]);
-      for (var j = 0; j < list.length; j++) if (bySurah[list[j]].durations) return list[j];
+      for (var j = 0; j < list.length; j++) if (bySurah[list[j]].t) return list[j];
     }
     return playable[0].n;
   }
@@ -395,39 +450,60 @@
   }
 
   audio.addEventListener('play', function () { mine.pause(); setPlaying(true); });
-  audio.addEventListener('pause', function () { setPlaying(false); });
-  audio.addEventListener('ended', function () { setPlaying(false); afterAyah(); });
+  audio.addEventListener('playing', armEnd);
+  audio.addEventListener('seeked', armEnd);
+  audio.addEventListener('loadedmetadata', function () {
+    if (engine.seekTo !== null && Math.abs(audio.currentTime - engine.seekTo) > 0.25) audio.currentTime = engine.seekTo;
+    engine.seekTo = null;
+  });
+  audio.addEventListener('timeupdate', function () {
+    if (engine.end !== null && !audio.seeking && audio.currentTime >= engine.end - 0.04) ayahDone();
+  });
+  audio.addEventListener('pause', function () { clearTimeout(engine.timer); setPlaying(false); });
+  audio.addEventListener('ended', function () {
+    setPlaying(false);
+    if (engine.end !== null) ayahDone();
+  });
   audio.addEventListener('error', function () {
     setPlaying(false);
-    if (audio.src) toast('Audio faylni ochib boʻlmadi');
+    engine.url = null;
+    engine.end = null;
+    if (audio.src) toast('Audio yuklanmadi. Internetni tekshiring yoki surani yuklab oling.');
   });
 
   // ---------- recordings (kept on this device)
 
-  var recStore = (function () {
-    var dbp = null, mem = [], memId = 1;
-    function open() {
-      if (!dbp) {
-        dbp = new Promise(function (resolve) {
-          try {
-            var req = indexedDB.open('muallim', 1);
-            req.onupgradeneeded = function () {
-              req.result.createObjectStore('recs', { keyPath: 'id', autoIncrement: true }).createIndex('s', 's');
-            };
-            req.onsuccess = function () { resolve(req.result); };
-            req.onerror = function () { resolve(null); };
-            req.onblocked = function () { resolve(null); };
-          } catch (e) { resolve(null); }
-        });
-      }
-      return dbp;
-    }
-    function done(req) {
-      return new Promise(function (resolve, reject) {
-        req.onsuccess = function () { resolve(req.result); };
-        req.onerror = function () { reject(req.error); };
+  var dbPromise = null;
+  function openDb() {
+    if (!dbPromise) {
+      dbPromise = new Promise(function (resolve) {
+        try {
+          var req = indexedDB.open('muallim', 2);
+          req.onupgradeneeded = function () {
+            var db = req.result;
+            if (!db.objectStoreNames.contains('recs')) {
+              db.createObjectStore('recs', { keyPath: 'id', autoIncrement: true }).createIndex('s', 's');
+            }
+            if (!db.objectStoreNames.contains('audio')) db.createObjectStore('audio', { keyPath: 's' });
+          };
+          req.onsuccess = function () { resolve(req.result); };
+          req.onerror = function () { resolve(null); };
+          req.onblocked = function () { resolve(null); };
+        } catch (e) { resolve(null); }
       });
     }
+    return dbPromise;
+  }
+  function done(req) {
+    return new Promise(function (resolve, reject) {
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  var recStore = (function () {
+    var mem = [], memId = 1;
+    var open = openDb;
     function os(db, mode) { return db.transaction('recs', mode).objectStore('recs'); }
     function inMemory(r) { r.id = 'm' + memId++; mem.push(r); return r; }
     return {
@@ -454,6 +530,163 @@
     };
   })();
 
+  // ---------- downloaded recitations (Android app: listen without internet)
+
+  var downloads = { urls: {}, busy: {}, all: false };
+  var ICON_DOWNLOAD = '<svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>';
+  var ICON_DONE = '<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
+
+  var audioStore = {
+    all: function () {
+      return openDb().then(function (db) {
+        return db ? done(db.transaction('audio', 'readonly').objectStore('audio').getAll()) : [];
+      }).catch(function () { return []; });
+    },
+    put: function (r) {
+      return openDb().then(function (db) {
+        if (!db) throw new Error('no storage');
+        return done(db.transaction('audio', 'readwrite').objectStore('audio').put(r));
+      });
+    },
+    remove: function (s) {
+      return openDb().then(function (db) {
+        if (db) return done(db.transaction('audio', 'readwrite').objectStore('audio').delete(s));
+      }).catch(function () { /* already gone */ });
+    }
+  };
+
+  function loadDownloads() {
+    return audioStore.all().then(function (rows) {
+      rows.forEach(function (r) { downloads.urls[r.s] = URL.createObjectURL(r.blob); });
+      playable.forEach(function (s) { updateDownloadUi(s.n); });
+    });
+  }
+
+  function updateDownloadUi(n) {
+    var btn = document.querySelector('.dl[data-s="' + n + '"]');
+    if (btn && !btn.classList.contains('armed')) {
+      var busy = downloads.busy[n];
+      btn.classList.toggle('done', !!downloads.urls[n]);
+      btn.classList.toggle('busy', busy !== undefined);
+      if (busy !== undefined) {
+        btn.textContent = Math.round(busy * 100) + '%';
+        btn.setAttribute('aria-label', 'Yuklanmoqda');
+      } else if (downloads.urls[n]) {
+        btn.innerHTML = ICON_DONE;
+        btn.setAttribute('aria-label', bySurah[n].uz + ' yuklab olingan. Oʻchirish uchun bosing');
+      } else {
+        btn.innerHTML = ICON_DOWNLOAD;
+        btn.setAttribute('aria-label', bySurah[n].uz + ' surasini yuklab olish, ' + megabytes(bySurah[n].size));
+      }
+    }
+    updateDownloadAll();
+  }
+
+  function updateDownloadAll() {
+    var btn = $('dlAll');
+    if (!btn) return;
+    var left = playable.filter(function (s) { return !downloads.urls[s.n]; });
+    btn.classList.toggle('hidden', !isApp || !left.length);
+    if (downloads.all) {
+      var total = playable.length, got = total - left.length;
+      $('dlAllText').textContent = 'Yuklanmoqda: ' + got + ' / ' + total + ' sura';
+    } else {
+      var bytes = left.reduce(function (sum, s) { return sum + s.size; }, 0);
+      $('dlAllText').textContent = 'Hammasini yuklab olish · ' + megabytes(bytes);
+    }
+  }
+
+  function onDownloadTap(n, btn) {
+    if (downloads.busy[n] !== undefined) return;
+    if (!downloads.urls[n]) { downloadSurah(n); return; }
+    if (!btn.classList.contains('armed')) {
+      // a second tap confirms
+      btn.classList.add('armed');
+      btn.textContent = 'Oʻchirilsinmi?';
+      setTimeout(function () { btn.classList.remove('armed'); updateDownloadUi(n); }, 3000);
+      return;
+    }
+    btn.classList.remove('armed');
+    removeDownload(n);
+  }
+
+  function downloadSurah(n) {
+    if (downloads.urls[n] || downloads.busy[n] !== undefined) return Promise.resolve(true);
+    downloads.busy[n] = 0;
+    updateDownloadUi(n);
+    return fetch(remoteUrl(n)).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var total = Number(res.headers.get('Content-Length')) || bySurah[n].size;
+      if (!res.body || !res.body.getReader) return res.blob();
+      var reader = res.body.getReader(), parts = [], got = 0;
+      var pump = function () {
+        return reader.read().then(function (r) {
+          if (r.done) return new Blob(parts, { type: 'audio/mpeg' });
+          parts.push(r.value);
+          got += r.value.length;
+          downloads.busy[n] = Math.min(got / total, 0.99);
+          updateDownloadUi(n);
+          return pump();
+        });
+      };
+      return pump();
+    }).then(function (blob) {
+      return audioStore.put({ s: n, blob: blob, size: blob.size, at: Date.now() }).then(function () {
+        downloads.urls[n] = URL.createObjectURL(blob);
+        delete downloads.busy[n];
+        updateDownloadUi(n);
+        if (!downloads.all) toast(bySurah[n].uz + ' surasi yuklab olindi');
+        return true;
+      }, function () {
+        delete downloads.busy[n];
+        updateDownloadUi(n);
+        toast('Telefonda joy yetmadi');
+        return false;
+      });
+    }).catch(function () {
+      delete downloads.busy[n];
+      updateDownloadUi(n);
+      toast('Yuklab boʻlmadi. Internetni tekshiring.');
+      return false;
+    });
+  }
+
+  function removeDownload(n) {
+    var url = downloads.urls[n];
+    if (engine.url === url) {
+      audio.pause();
+      engine.url = null;
+      engine.end = null;
+    }
+    delete downloads.urls[n];
+    audioStore.remove(n).then(function () {
+      URL.revokeObjectURL(url);
+      updateDownloadUi(n);
+      toast(bySurah[n].uz + ' surasi oʻchirildi');
+    });
+  }
+
+  function downloadAll() {
+    if (downloads.all) return;
+    downloads.all = true;
+    updateDownloadAll();
+    var queue = playable.filter(function (s) { return !downloads.urls[s.n]; });
+    var next = function () {
+      var s = queue.shift();
+      if (!s) {
+        downloads.all = false;
+        updateDownloadAll();
+        toast('Hamma suralar yuklab olindi');
+        return;
+      }
+      downloadSurah(s.n).then(function (ok) {
+        if (ok) next();
+        else { downloads.all = false; updateDownloadAll(); }
+      });
+    };
+    next();
+  }
+
   var practice = { on: false, s: null, a: null, lastA: null, recs: [] };
   var rec = { mr: null, stream: null, chunks: [], started: 0, timer: 0, ctx: null, raf: 0, s: null, a: null };
   var mine = new Audio();
@@ -468,7 +701,7 @@
   }
 
   function enterPractice() {
-    var s = focus !== null && bySurah[focus] && bySurah[focus].durations && onScreen(focus)
+    var s = focus !== null && bySurah[focus] && bySurah[focus].t && onScreen(focus)
       ? focus : firstSurahOnScreen();
     var a = state.s === s && state.a > 0 && state.mode === 'ayah' ? state.a : null;
     audio.pause();
@@ -742,7 +975,7 @@
   function togglePlay() {
     if (!audio.paused) { audio.pause(); return; }
     if (state.s === null) { startSurah(firstSurahOnScreen()); return; }
-    if (audio.src && !audio.ended) audio.play(); else play(state.s, state.a);
+    if (engine.end !== null) audio.play(); else play(state.s, state.a);
   }
 
   function stepAyah(dir) {
@@ -827,4 +1060,5 @@
   bindControls();
   setMode(state.mode);
   setRepeat(state.repeat);
+  if (isApp) loadDownloads();
 })();

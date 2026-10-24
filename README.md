@@ -21,15 +21,17 @@ Hozircha 70–114-suralar bor: 29-poraning oxiri va 30-pora (mushafning 568–60
   Yozuvlar faqat shu qurilmada saqlanadi.
 - Telefonda bitta sahifa, kompyuterda ochiq kitob (ikki sahifa yonma-yon).
 - Kompyuterda klaviatura: ← → sahifa, ↑ ↓ oyat, Probel ijro/pauza, mashqda R yozishni boshlaydi/toʻxtatadi.
-- Ilova internetsiz ishlaydi.
+- Audio internetdan oʻqiladi. Ilovada har bir surani **yuklab olish** mumkin,
+  yuklangan sura internetsiz ishlaydi.
 
 ## Tuzilishi
 
 | Papka | Nima bor |
 | --- | --- |
-| `android/app/src/main/assets/www/` | Interfeys (HTML/CSS/JS), sahifa rasmlari, oyatma-oyat audio. Ilova ham, sayt ham shu papkadan ishlaydi. |
+| `android/app/src/main/assets/www/` | Interfeys (HTML/CSS/JS), sahifa rasmlari va oyat vaqtlari (`data.js`). Ilova ham, sayt ham shu papkadan ishlaydi. |
+| Cloudflare R2, `quron` bucket | Suralarning toʻliq audiosi: `quron/070.mp3` … `quron/114.mp3`. Manzili `app.js` dagi `AUDIO_BASE` da. |
 | `android/` | Android loyihasi (WebView oynasi). |
-| `tools/prepare.py` | Mushaf PDF va sura mp3 fayllaridan `www` ichidagi maʼlumotlarni yasaydi. |
+| `tools/prepare.py` | Mushaf PDF va sura mp3 fayllaridan sahifa rasmlari, oyat hududlari va har bir oyatning audiodagi vaqtini yasaydi. |
 | `tools/husary_ayah_durations.json` | Husariy qiroatidagi har bir oyat davomiyligi. Qori uzun oyat ichida toʻxtagan joylarni oyat oxiridan ajratish uchun kerak. |
 | `.github/workflows/pages.yml` | `main` ga push qilinganda saytni GitHub Pages'ga joylaydi. |
 
@@ -37,7 +39,7 @@ Hozircha 70–114-suralar bor: 29-poraning oxiri va 30-pora (mushafning 568–60
 
 Manba fayllar (mushaf PDF va `NNN.mp3`) repoga kiritilmaydi. Ular loyiha ildizida turadi.
 
-1. `NNN.mp3` audio fayllarni loyiha ildiziga qoʻying.
+1. `NNN.mp3` audio fayllarni loyiha ildiziga qoʻying va Cloudflare R2 dagi `quron` bucket ichidagi `quron/` papkasiga yuklang.
 2. `tools/prepare.py` ichida `SURAHS` (nomi, oyatlar soni), `FIRST_PAGE` va `PAGES` ni yangilang.
    `PAGES` da birinchi sahifa qaysi sura va oyatdan boshlanishi yoziladi; qolgan sahifalarni
    skript oyat belgilarini sanab oʻzi davom ettiradi. Roʻyxatdagi boshqa sahifalar nazorat nuqtasi:

@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- recitations stream from Cloudflare R2, or are downloaded for offline use -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- lets the page know when the phone is offline (navigator.onLine) -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- practice mode: the user records their own recitation -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
