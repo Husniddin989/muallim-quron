@@ -7,7 +7,7 @@ boshidan oxirigacha ham tinglash mumkin.
 - **Sayt:** https://husniddin989.github.io/muallim-quron/
 - **Android ilova (APK):** [Releases](https://github.com/Husniddin989/muallim-quron/releases/latest)
 
-Hozircha 70–114-suralar bor: 29-poraning oxiri va 30-pora (mushafning 568–604-betlari).
+Butun Qurʼon: 114 sura, 6236 oyat, mushafning 604 sahifasi.
 
 ## Imkoniyatlar
 
@@ -21,8 +21,9 @@ Hozircha 70–114-suralar bor: 29-poraning oxiri va 30-pora (mushafning 568–60
   Yozuvlar faqat shu qurilmada saqlanadi.
 - Telefonda bitta sahifa, kompyuterda ochiq kitob (ikki sahifa yonma-yon).
 - Kompyuterda klaviatura: ← → sahifa, ↑ ↓ oyat, Probel ijro/pauza, mashqda R yozishni boshlaydi/toʻxtatadi.
-- Audio internetdan oʻqiladi. Ilovada har bir surani **yuklab olish** mumkin,
-  yuklangan sura internetsiz ishlaydi.
+- Mushaf sahifalari ilova ichida, internetsiz oʻqiladi. Audio (2.3 GB) Cloudflare R2 dan oʻqiladi;
+  ilovada istalgan surani yoki hammasini **yuklab olish** mumkin, yuklangan sura internetsiz ishlaydi.
+- Suralar roʻyxatida nomi (oʻzbekcha yoki arabcha) yoki raqami boʻyicha qidiruv.
 
 ## Tuzilishi
 
@@ -40,13 +41,12 @@ Hozircha 70–114-suralar bor: 29-poraning oxiri va 30-pora (mushafning 568–60
 Manba fayllar (mushaf PDF va `NNN.mp3`) repoga kiritilmaydi. Ular loyiha ildizida turadi.
 
 1. `NNN.mp3` audio fayllarni loyiha ildiziga qoʻying va Cloudflare R2 dagi `quron` bucket ichidagi `quron/` papkasiga yuklang.
-2. `tools/prepare.py` ichida `SURAHS` (nomi, oyatlar soni), `FIRST_PAGE` va `PAGES` ni yangilang.
-   `PAGES` da birinchi sahifa qaysi sura va oyatdan boshlanishi yoziladi; qolgan sahifalarni
-   skript oyat belgilarini sanab oʻzi davom ettiradi. Roʻyxatdagi boshqa sahifalar nazorat nuqtasi:
-   sanoq ularga aniq yetib kelmasa, skript xato beradi.
-   Agar sahifa sarlavhasiz basmaladan boshlansa, oyat raqami `0` boʻladi.
-3. Yangi suralarni `tools/husary_ayah_durations.json` ga ham qoʻshing.
-   Bu maʼlumot everyayah.com dagi `Husary_128kbps` fayllari hajmidan olinadi.
+2. Qurʼon toʻliq boʻlgani uchun `tools/prepare.py` dagi jadvallarni oʻzgartirish shart emas.
+   Skript 1-sahifadan boshlab oyat belgilarini sanaydi va har bir sura oxirida oyatlar sonini tekshiradi.
+   Andoza topa olmagan ikki belgi `MANUAL_MARKERS` da qoʻlda koʻrsatilgan.
+3. `tools/husary_ayah_durations.json`: Husariy qiroatidagi har bir oyat davomiyligi
+   (everyayah.com dagi `Husary_128kbps` fayllari hajmidan olingan). Qori uzun oyat ichida toʻxtagan
+   yoki ikki oyatni toʻxtamasdan oʻqigan joylarni ajratishda ishlatiladi.
 4. Maʼlumotlarni yasang (kerak: `pip install numpy scipy pillow`, `brew install poppler ffmpeg`):
 
 ```bash
@@ -56,7 +56,9 @@ python3 tools/prepare.py . android/app/src/main/assets/www
    Skript har bir sahifadagi oyat belgilarini, sahifalar orasidagi uzviylikni va audio
    boʻlaklarini tekshiradi. Biror narsa mos kelmasa, xato bilan toʻxtaydi.
 
-5. APK yigʻing (`android/app/build.gradle` da `versionCode` ni oshiring):
+5. APK yigʻing (`android/app/build.gradle` da `versionCode` ni oshiring). Build fayllari iCloud bilan
+   toʻqnashmasligi uchun `~/.cache/muallim-quron` ga yoziladi, tayyor APK loyiha ildiziga
+   `Muallim-Quron.apk` nomi bilan nusxalanadi:
 
 ```bash
 cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradlew assembleRelease

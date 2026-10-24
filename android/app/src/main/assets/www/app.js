@@ -59,7 +59,10 @@
   // [start, end] seconds of an ayah (0 = basmala) in the surah's recitation
   function span(s, a) { return bySurah[s].t[hasBasmala(s) ? a : a - 1]; }
   function remoteUrl(s) { return AUDIO_BASE + pad(s) + '.mp3'; }
-  function megabytes(bytes) { return (bytes / 1048576).toFixed(1) + ' MB'; }
+  function megabytes(bytes) {
+    var mb = bytes / 1048576;
+    return mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : mb.toFixed(1) + ' MB';
+  }
   function lastIndex(s) { return bySurah[s].ayahs; }
   function key(s, a) { return s + ':' + a; }
   function juzOf(p) {
@@ -114,12 +117,36 @@
     });
     $('resume').addEventListener('click', function () { openReader(state.page); });
     $('dlAll').addEventListener('click', downloadAll);
+    $('search').addEventListener('input', filterList);
     updateResume();
+  }
+
+  function normalize(text) {
+    return String(text).toLowerCase().replace(/[ʼʻ'`’‘\s-]/g, '');
+  }
+
+  function filterList() {
+    var q = normalize($('search').value);
+    var any = false;
+    Array.prototype.forEach.call(document.querySelectorAll('.surah-group'), function (group) {
+      var shown = 0;
+      Array.prototype.forEach.call(group.querySelectorAll('.surah'), function (li) {
+        // digits match the surah number from its start: "11" finds 11 and 110-114
+        var hit = !q || (/^\d+$/.test(q) ? li.dataset.n.indexOf(q) === 0 : li.dataset.q.indexOf(q) >= 0);
+        li.classList.toggle('hidden', !hit);
+        if (hit) shown++;
+      });
+      group.classList.toggle('hidden', !shown);
+      if (shown) any = true;
+    });
+    $('noMatch').classList.toggle('hidden', any);
   }
 
   function surahRow(s) {
     var li = document.createElement('li');
     li.className = 'surah';
+    li.dataset.n = s.n;
+    li.dataset.q = normalize(s.uz) + '|' + s.ar;
     li.innerHTML =
       '<span class="num">' + s.n + '</span>' +
       '<span class="meta"><b>' + s.uz + '</b><small>' + s.ayahs + ' oyat · ' +
@@ -158,39 +185,32 @@
       blank.className = 'page blank right';
       pager.appendChild(blank);
     }
+    // every page gets an empty sheet of the right size; its image and ayah
+    // regions are added only while it is near the screen (604 pages in all)
     pageNums.forEach(function (p) {
       var P = Q.pages[p];
+      P.regions.forEach(function (r) {
+        var k = key(r.s, r.a);
+        regionPage[k] = regionPage[k] || p;
+      });
       var page = document.createElement('div');
       page.className = 'page ' + (p % 2 ? 'right' : 'left');
       page.dataset.page = p;
       var sheet = document.createElement('div');
       sheet.className = 'sheet';
       sheet.style.setProperty('--ratio', P.w / P.h);
-      var img = new Image();
-      img.src = 'pages/' + p + '.webp';
-      img.alt = p + '-bet';
-      img.loading = 'lazy';
-      sheet.appendChild(img);
-      P.regions.forEach(function (r) {
-        var k = key(r.s, r.a);
-        regionPage[k] = regionPage[k] || p;
-        r.r.forEach(function (box) {
-          var d = document.createElement('div');
-          d.className = 'rg';
-          d.style.left = (box[0] / P.w * 100) + '%';
-          d.style.top = (box[1] / P.h * 100) + '%';
-          d.style.width = (box[2] / P.w * 100) + '%';
-          d.style.height = (box[3] / P.h * 100) + '%';
-          d.dataset.s = r.s;
-          d.dataset.a = r.a;
-          sheet.appendChild(d);
-          (regionEls[k] = regionEls[k] || []).push(d);
-        });
-      });
       page.appendChild(sheet);
       pager.appendChild(page);
       pageEls[p] = page;
     });
+
+    var near = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        var p = Number(en.target.dataset.page);
+        if (en.isIntersecting) fillPage(p); else emptyPage(p);
+      });
+    }, { root: pager, rootMargin: '0px 200%' });
+    pageNums.forEach(function (p) { near.observe(pageEls[p]); });
 
     pager.addEventListener('click', function (e) {
       var rg = e.target.closest('.rg');
@@ -206,6 +226,47 @@
       updateTitle();
     }, { root: pager, threshold: 0.6 });
     pageNums.forEach(function (p) { io.observe(pageEls[p]); });
+  }
+
+  var filled = {};  // page number -> true while its image and regions are in the page
+
+  function fillPage(p) {
+    if (filled[p]) return;
+    filled[p] = true;
+    var P = Q.pages[p];
+    var sheet = pageEls[p].firstChild;
+    var img = new Image();
+    img.decoding = 'async';
+    img.src = 'pages/' + p + '.webp';
+    img.alt = p + '-bet';
+    sheet.appendChild(img);
+    P.regions.forEach(function (r) {
+      var k = key(r.s, r.a);
+      r.r.forEach(function (box) {
+        var d = document.createElement('div');
+        d.className = k === highlighted ? 'rg on' : 'rg';
+        d.style.left = (box[0] / P.w * 100) + '%';
+        d.style.top = (box[1] / P.h * 100) + '%';
+        d.style.width = (box[2] / P.w * 100) + '%';
+        d.style.height = (box[3] / P.h * 100) + '%';
+        d.dataset.s = r.s;
+        d.dataset.a = r.a;
+        sheet.appendChild(d);
+        (regionEls[k] = regionEls[k] || []).push(d);
+      });
+    });
+  }
+
+  function emptyPage(p) {
+    if (!filled[p]) return;
+    delete filled[p];
+    pageEls[p].firstChild.textContent = '';
+    // an ayah running over two pages keeps the regions on the other page
+    Q.pages[p].regions.forEach(function (r) {
+      var k = key(r.s, r.a);
+      var left = (regionEls[k] || []).filter(function (d) { return d.isConnected; });
+      if (left.length) regionEls[k] = left; else delete regionEls[k];
+    });
   }
 
   function visiblePages() {
@@ -241,6 +302,7 @@
   function showPage(p, smooth) {
     var el = pageEls[p];
     if (!el) return;
+    fillPage(p);
     if (state.spread && p % 2 === 0) el = el.previousElementSibling || el; // the right-hand page of the spread
     el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', inline: 'start', block: 'nearest' });
   }
@@ -344,8 +406,8 @@
   function playAt(s, a) {
     focus = s;
     var sp = span(s, a);
-    var url = downloads.urls[s] || remoteUrl(s);
-    if (!downloads.urls[s] && navigator.onLine === false) {
+    var url = (isApp && localUrl(s)) || remoteUrl(s);
+    if (url === remoteUrl(s) && navigator.onLine === false) {
       toast('Internet yoʻq. Bu surani tinglash uchun uni oldin yuklab oling.');
       return;
     }
@@ -531,47 +593,40 @@
   })();
 
   // ---------- downloaded recitations (Android app: listen without internet)
+  // The app writes them straight to files (al-Baqara alone is 190 MB) and reports
+  // progress through window.app.onDownload.
 
-  var downloads = { urls: {}, busy: {}, all: false };
+  var downloads = { have: {}, busy: {}, waiting: {}, all: false };
   var ICON_DOWNLOAD = '<svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>';
   var ICON_DONE = '<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
 
-  var audioStore = {
-    all: function () {
-      return openDb().then(function (db) {
-        return db ? done(db.transaction('audio', 'readonly').objectStore('audio').getAll()) : [];
-      }).catch(function () { return []; });
-    },
-    put: function (r) {
-      return openDb().then(function (db) {
-        if (!db) throw new Error('no storage');
-        return done(db.transaction('audio', 'readwrite').objectStore('audio').put(r));
-      });
-    },
-    remove: function (s) {
-      return openDb().then(function (db) {
-        if (db) return done(db.transaction('audio', 'readwrite').objectStore('audio').delete(s));
-      }).catch(function () { /* already gone */ });
-    }
-  };
+  function localUrl(n) { return downloads.have[n] ? native.fileUrl(n) : null; }
 
   function loadDownloads() {
-    return audioStore.all().then(function (rows) {
-      rows.forEach(function (r) { downloads.urls[r.s] = URL.createObjectURL(r.blob); });
-      playable.forEach(function (s) { updateDownloadUi(s.n); });
-    });
+    try { downloads.have = JSON.parse(native.downloaded()) || {}; } catch (e) { downloads.have = {}; }
+    playable.forEach(function (s) { updateDownloadUi(s.n); });
+    dropBrowserCopies();
+  }
+
+  // version 1.4 kept downloads inside the page's database; free that space
+  function dropBrowserCopies() {
+    openDb().then(function (db) {
+      if (db && db.objectStoreNames.contains('audio')) {
+        db.transaction('audio', 'readwrite').objectStore('audio').clear();
+      }
+    }).catch(function () { /* nothing to free */ });
   }
 
   function updateDownloadUi(n) {
     var btn = document.querySelector('.dl[data-s="' + n + '"]');
     if (btn && !btn.classList.contains('armed')) {
       var busy = downloads.busy[n];
-      btn.classList.toggle('done', !!downloads.urls[n]);
+      btn.classList.toggle('done', !!downloads.have[n]);
       btn.classList.toggle('busy', busy !== undefined);
       if (busy !== undefined) {
         btn.textContent = Math.round(busy * 100) + '%';
-        btn.setAttribute('aria-label', 'Yuklanmoqda');
-      } else if (downloads.urls[n]) {
+        btn.setAttribute('aria-label', 'Yuklanmoqda, toʻxtatish uchun bosing');
+      } else if (downloads.have[n]) {
         btn.innerHTML = ICON_DONE;
         btn.setAttribute('aria-label', bySurah[n].uz + ' yuklab olingan. Oʻchirish uchun bosing');
       } else {
@@ -585,11 +640,11 @@
   function updateDownloadAll() {
     var btn = $('dlAll');
     if (!btn) return;
-    var left = playable.filter(function (s) { return !downloads.urls[s.n]; });
+    var left = playable.filter(function (s) { return !downloads.have[s.n]; });
     btn.classList.toggle('hidden', !isApp || !left.length);
     if (downloads.all) {
       var total = playable.length, got = total - left.length;
-      $('dlAllText').textContent = 'Yuklanmoqda: ' + got + ' / ' + total + ' sura';
+      $('dlAllText').textContent = 'Yuklanmoqda: ' + got + ' / ' + total + ' sura · toʻxtatish';
     } else {
       var bytes = left.reduce(function (sum, s) { return sum + s.size; }, 0);
       $('dlAllText').textContent = 'Hammasini yuklab olish · ' + megabytes(bytes);
@@ -597,8 +652,11 @@
   }
 
   function onDownloadTap(n, btn) {
-    if (downloads.busy[n] !== undefined) return;
-    if (!downloads.urls[n]) { downloadSurah(n); return; }
+    if (downloads.busy[n] !== undefined) {
+      native.cancelDownload(n);
+      return;
+    }
+    if (!downloads.have[n]) { downloadSurah(n); return; }
     if (!btn.classList.contains('armed')) {
       // a second tap confirms
       btn.classList.add('armed');
@@ -611,72 +669,68 @@
   }
 
   function downloadSurah(n) {
-    if (downloads.urls[n] || downloads.busy[n] !== undefined) return Promise.resolve(true);
+    if (downloads.have[n]) return Promise.resolve(true);
+    if (downloads.waiting[n]) return downloads.waiting[n].promise;
+    var w = {};
+    w.promise = new Promise(function (resolve) { w.resolve = resolve; });
+    downloads.waiting[n] = w;
     downloads.busy[n] = 0;
     updateDownloadUi(n);
-    return fetch(remoteUrl(n)).then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      var total = Number(res.headers.get('Content-Length')) || bySurah[n].size;
-      if (!res.body || !res.body.getReader) return res.blob();
-      var reader = res.body.getReader(), parts = [], got = 0;
-      var pump = function () {
-        return reader.read().then(function (r) {
-          if (r.done) return new Blob(parts, { type: 'audio/mpeg' });
-          parts.push(r.value);
-          got += r.value.length;
-          downloads.busy[n] = Math.min(got / total, 0.99);
-          updateDownloadUi(n);
-          return pump();
-        });
-      };
-      return pump();
-    }).then(function (blob) {
-      return audioStore.put({ s: n, blob: blob, size: blob.size, at: Date.now() }).then(function () {
-        downloads.urls[n] = URL.createObjectURL(blob);
-        delete downloads.busy[n];
-        updateDownloadUi(n);
-        if (!downloads.all) toast(bySurah[n].uz + ' surasi yuklab olindi');
-        return true;
-      }, function () {
-        delete downloads.busy[n];
-        updateDownloadUi(n);
-        toast('Telefonda joy yetmadi');
-        return false;
-      });
-    }).catch(function () {
-      delete downloads.busy[n];
+    native.download(n, remoteUrl(n));
+    return w.promise;
+  }
+
+  // progress from the app: 0..1, then status 'done', 'error', 'nospace' or 'cancelled'
+  function onDownload(n, progress, status) {
+    if (!status) {
+      downloads.busy[n] = Math.min(progress, 0.99);
       updateDownloadUi(n);
+      return;
+    }
+    delete downloads.busy[n];
+    var w = downloads.waiting[n];
+    delete downloads.waiting[n];
+    if (status === 'done') {
+      downloads.have[n] = bySurah[n].size;
+      if (!downloads.all) toast(bySurah[n].uz + ' surasi yuklab olindi');
+    } else if (status === 'nospace') {
+      toast('Telefonda joy yetmadi');
+    } else if (status === 'error') {
       toast('Yuklab boʻlmadi. Internetni tekshiring.');
-      return false;
-    });
+    }
+    updateDownloadUi(n);
+    if (w) w.resolve(status === 'done');
   }
 
   function removeDownload(n) {
-    var url = downloads.urls[n];
-    if (engine.url === url) {
+    if (engine.url === localUrl(n)) {
       audio.pause();
       engine.url = null;
       engine.end = null;
     }
-    delete downloads.urls[n];
-    audioStore.remove(n).then(function () {
-      URL.revokeObjectURL(url);
-      updateDownloadUi(n);
-      toast(bySurah[n].uz + ' surasi oʻchirildi');
-    });
+    native.removeDownload(n);
+    delete downloads.have[n];
+    updateDownloadUi(n);
+    toast(bySurah[n].uz + ' surasi oʻchirildi');
   }
 
   function downloadAll() {
-    if (downloads.all) return;
+    if (downloads.all) {
+      // a second tap stops the queue after cancelling the current file
+      downloads.all = false;
+      Object.keys(downloads.busy).forEach(function (n) { native.cancelDownload(Number(n)); });
+      updateDownloadAll();
+      return;
+    }
     downloads.all = true;
     updateDownloadAll();
-    var queue = playable.filter(function (s) { return !downloads.urls[s.n]; });
+    var queue = playable.filter(function (s) { return !downloads.have[s.n]; });
     var next = function () {
       var s = queue.shift();
-      if (!s) {
+      if (!s || !downloads.all) {
+        if (downloads.all) toast('Hamma suralar yuklab olindi');
         downloads.all = false;
         updateDownloadAll();
-        toast('Hamma suralar yuklab olindi');
         return;
       }
       downloadSurah(s.n).then(function (ok) {
@@ -1046,6 +1100,7 @@
 
   // called by the Android back button; returns true when handled
   window.app = {
+    onDownload: function (n, progress, status) { onDownload(n, progress, status); },
     back: function () {
       if (!readerOpen()) return false;
       if (!$('recPanel').classList.contains('hidden')) closeRecPanel();
