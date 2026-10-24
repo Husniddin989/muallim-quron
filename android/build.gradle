@@ -1,3 +1,9 @@
 plugins {
     id 'com.android.application' version '8.7.3' apply false
 }
+
+// The project lives on an iCloud-synced Desktop, and iCloud makes "name 2" copies of
+// files Gradle is still writing, which breaks the build. Build outside the synced folder.
+allprojects {
+    layout.buildDirectory = new File(System.getProperty('user.home'), ".cache/muallim-quron/${project.name}")
+}

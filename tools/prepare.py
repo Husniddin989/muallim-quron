@@ -24,6 +24,26 @@ PDF_PAGE_OFFSET = 1  # PDF page = mushaf page + 1 (the PDF starts with a cover)
 
 # number: (arabic name, uzbek name, ayah count)
 SURAHS = {
+    69: ('الحاقة', 'Hoqqa', 52),
+    70: ('المعارج', 'Maʼorij', 44),
+    71: ('نوح', 'Nuh', 28),
+    72: ('الجن', 'Jin', 28),
+    73: ('المزمل', 'Muzzammil', 20),
+    74: ('المدثر', 'Muddassir', 56),
+    75: ('القيامة', 'Qiyomat', 40),
+    76: ('الإنسان', 'Inson', 31),
+    77: ('المرسلات', 'Mursalot', 50),
+    78: ('النبأ', 'Naba', 40),
+    79: ('النازعات', 'Noziʼot', 46),
+    80: ('عبس', 'Abasa', 42),
+    81: ('التكوير', 'Takvir', 29),
+    82: ('الانفطار', 'Infitor', 19),
+    83: ('المطففين', 'Mutaffifin', 36),
+    84: ('الانشقاق', 'Inshiqoq', 25),
+    85: ('البروج', 'Buruj', 22),
+    86: ('الطارق', 'Toriq', 17),
+    87: ('الأعلى', 'Aʼlo', 19),
+    88: ('الغاشية', 'Gʻoshiya', 26),
     89: ('الفجر', 'Fajr', 30),
     90: ('البلد', 'Balad', 20),
     91: ('الشمس', 'Shams', 15),
@@ -52,9 +72,14 @@ SURAHS = {
     114: ('الناس', 'Nos', 6),
 }
 
+FIRST_PAGE, LAST_PAGE = 568, 604
+
 # mushaf page -> (surah, ayah) the page starts with.  Ayah 0 means the page
 # starts with the surah's basmala (its header is the last line of the page before).
+# Pages not listed continue from where the page before ended; the listed ones
+# check that the ayah markers were counted right up to there.
 PAGES = {
+    568: (69, 35),
     594: (89, 24),
     595: (91, 0),
     596: (92, 15),
@@ -73,6 +98,12 @@ PAGES = {
 # a long ayah.  Reference files carry about REF_GAP s more silence than speech.
 REF_DURATIONS = os.path.join(HERE, 'husary_ayah_durations.json')
 REF_GAP = 1.6
+BASMALA_REF = 8.2  # Husary's basmala at the start of a surah, same measure as REF_DURATIONS
+# Pauses tried in turn until there are at least as many speech chunks as ayahs
+# (the reciter joins some short ayahs with only a brief breath between them).
+MIN_PAUSES = (0.5, 0.3, 0.2, 0.12)
+# Cost (s^2) of ending an ayah at a pause shorter than 0.6 s, per second missing.
+SHORT_PAUSE_COST = 4.0
 
 LINES = 15
 LINE_PITCH = 60.2
@@ -151,15 +182,15 @@ def text_bounds(page_img):
     return best[0] + 2, best[1] - 2
 
 
-def page_regions(page, img, template):
-    """Tappable regions of one page, walked in reading order.
+def page_regions(page, start, img, template):
+    """Tappable regions of one page, walked in reading order from `start`.
 
     Returns the regions and the (surah, ayah) the next page should start with.
     """
     markers = find_markers(img, template)
     headers = header_lines(img)
     L, R = text_bounds(img)
-    surah, ayah = PAGES[page]
+    surah, ayah = start
     regions = []
 
     def rect(line, x0, x1):
@@ -211,10 +242,10 @@ def page_regions(page, img, template):
     return regions, markers, (surah, ayah)
 
 
-def silences(path):
+def silences(path, min_pause):
     out = subprocess.run(
         ['ffmpeg', '-hide_banner', '-nostats', '-i', path, '-af',
-         'silencedetect=noise=-35dB:d=0.5', '-f', 'null', '-'],
+         f'silencedetect=noise=-35dB:d={min_pause}', '-f', 'null', '-'],
         capture_output=True, text=True).stderr
     starts = [float(v) for v in re.findall(r'silence_start: ([\d.]+)', out)]
     ends = [float(v) for v in re.findall(r'silence_end: ([\d.]+)', out)]
@@ -228,12 +259,15 @@ def duration(path):
 
 
 def group_into_ayahs(surah, chunks, ref):
-    """Merges speech chunks (start, speech_end, pause_end) so there is one per ayah.
+    """Merges speech chunks (start, speech_end, pause_end) so there is one per
+    ayah, with the basmala first.
 
     The reciter sometimes pauses inside a long ayah; the reference durations
     decide which pauses those are (least-squares over all contiguous groupings).
     """
-    n = SURAHS[surah][2]
+    n = SURAHS[surah][2] + 1
+    if ref:
+        ref = [BASMALA_REF] + ref
     if len(chunks) == n:
         groups = [[c] for c in chunks]
     elif len(chunks) > n and ref:
@@ -248,7 +282,9 @@ def group_into_ayahs(surah, chunks, ref):
                     if best[s][j - 1] == INF:
                         continue
                     span = chunks[i - 1][1] - chunks[s][0] + REF_GAP
-                    c = best[s][j - 1] + (span - ref[j - 1]) ** 2
+                    pause = chunks[i - 1][2] - chunks[i - 1][1]
+                    short = SHORT_PAUSE_COST * max(0.0, 0.6 - pause) if j < n else 0.0
+                    c = best[s][j - 1] + (span - ref[j - 1]) ** 2 + short
                     if c < best[i][j]:
                         best[i][j], back[i][j] = c, s
         groups, i = [], m
@@ -257,29 +293,40 @@ def group_into_ayahs(surah, chunks, ref):
             groups.insert(0, chunks[s:i])
             i = s
     else:
-        raise SystemExit(f'surah {surah}: {len(chunks)} recitation chunks for {n} ayahs '
-                         f'and no reference durations to group them')
+        raise SystemExit(f'surah {surah}: {len(chunks)} recitation chunks for the basmala and '
+                         f'{n - 1} ayahs, and no reference durations to group them')
 
     merged = [(g[0][0], g[-1][1], g[-1][2]) for g in groups]
     if ref:
-        for a, (s, e, _) in enumerate(merged, 1):
-            if abs(e - s + REF_GAP - ref[a - 1]) > max(3.0, 0.25 * ref[a - 1]):
-                print(f'  warning: {surah}:{a} lasts {e - s:.1f}s, reference {ref[a - 1]:.1f}s')
+        for a, (s, e, _) in enumerate(merged):
+            if abs(e - s + REF_GAP - ref[a]) > max(3.0, 0.25 * ref[a]):
+                print(f'  warning: {surah}:{a} lasts {e - s:.1f}s, reference {ref[a]:.1f}s')
     return merged, [len(g) for g in groups]
+
+
+def speech_chunks(src, dur, min_pause):
+    """(start, speech_end, pause_end) for every stretch of speech between pauses."""
+    chunks, t = [], 0.0
+    for s, e in silences(src, min_pause):
+        if s - t < 0.15:
+            # no real speech before this pause: silence at the start, or one longer pause
+            if chunks:
+                chunks[-1] = (chunks[-1][0], chunks[-1][1], e)
+        else:
+            chunks.append((t, s, e))
+        t = e
+    if dur - t > 0.3:
+        chunks.append((t, dur, dur))
+    return chunks
 
 
 def split_audio(surah, src, dst_dir, refs):
     dur = duration(src)
-    # speech chunks between the pauses; the last pause runs to the end of the file
-    chunks, t = [], 0.0
-    for s, e in silences(src):
-        chunks.append((t, s, e))  # speech from t to s, followed by a pause until e
-        t = e
-    if dur - t > 0.3:
-        chunks.append((t, dur, dur))
-    # chunk 0 is the basmala
-    ayahs, sizes = group_into_ayahs(surah, chunks[1:], refs.get(str(surah)))
-    parts = [chunks[0]] + ayahs
+    for min_pause in MIN_PAUSES:
+        chunks = speech_chunks(src, dur, min_pause)
+        if len(chunks) >= SURAHS[surah][2] + 1:
+            break
+    parts, sizes = group_into_ayahs(surah, chunks, refs.get(str(surah)))
 
     os.makedirs(dst_dir, exist_ok=True)
     durations = []
@@ -291,9 +338,9 @@ def split_audio(surah, src, dst_dir, refs):
         subprocess.run(['ffmpeg', '-y', '-v', 'error', '-ss', f'{a:.3f}', '-to', f'{b:.3f}',
                         '-i', src, '-map', '0:a', '-c', 'copy', out], check=True)
         durations.append(round(b - a, 2))
-    merged = [f'{a}' for a, k in enumerate(sizes, 1) if k > 1]
+    merged = [f'{a}' for a, k in enumerate(sizes) if k > 1 and a > 0]
     note = f' (ayahs read with an inner pause: {", ".join(merged)})' if merged else ''
-    print(f'surah {surah}: {len(parts)} audio files{note}')
+    print(f"surah {surah}: {len(parts)} audio files, pauses >= {min_pause}s{note}")
     return durations
 
 
@@ -305,17 +352,18 @@ def main():
     os.makedirs(os.path.join(www, 'pages'), exist_ok=True)
 
     pages = {}
+    start = PAGES[FIRST_PAGE]
     with tempfile.TemporaryDirectory() as tmp:
-        for page in sorted(PAGES):
+        for page in range(FIRST_PAGE, LAST_PAGE + 1):
+            if page in PAGES and PAGES[page] != start:
+                raise SystemExit(f'page {page - 1} ends before {start}, '
+                                 f'but page {page} is set to start at {PAGES[page]}')
             pdf_page = str(page + PDF_PAGE_OFFSET)
             subprocess.run(['pdfimages', '-f', pdf_page, '-l', pdf_page, '-png',
                             os.path.join(src, PDF_NAME), os.path.join(tmp, f'p{page}')],
                            check=True)
             img = Image.open(os.path.join(tmp, f'p{page}-000.png')).convert('RGB')
-            regions, markers, next_start = page_regions(page, img, template)
-            if page + 1 in PAGES and PAGES[page + 1] != next_start:
-                raise SystemExit(f'page {page} ends before {next_start}, '
-                                 f'but page {page + 1} is set to start at {PAGES[page + 1]}')
+            regions, markers, start = page_regions(page, start, img, template)
             img.save(os.path.join(www, 'pages', f'{page}.webp'), lossless=True, quality=100)
             pages[page] = {'w': img.width, 'h': img.height, 'regions': regions}
             print(f'page {page}: {len(markers)} markers, {len(regions)} regions')

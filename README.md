@@ -7,7 +7,7 @@ boshidan oxirigacha ham tinglash mumkin.
 - **Sayt:** https://husniddin989.github.io/muallim-quron/
 - **Android ilova (APK):** [Releases](https://github.com/Husniddin989/muallim-quron/releases/latest)
 
-Hozircha 30-poradagi 90–114-suralar bor (mushafning 594–604-betlari).
+Hozircha 70–114-suralar bor: 29-poraning oxiri va 30-pora (mushafning 568–604-betlari).
 
 ## Imkoniyatlar
 
@@ -16,8 +16,11 @@ Hozircha 30-poradagi 90–114-suralar bor (mushafning 594–604-betlari).
 - Uch rejim: **Bitta oyat**, **Butun sura**, **Davomli** (oxirgi suragacha).
   Qiroat davom etganda sahifa oʻzi varaqlanadi.
 - **Takror**: oyat yoki surani qayta-qayta oʻqish (yodlash uchun).
+- **Mashq** (mikrofon tugmasi): oyat yoki surani oʻzingiz oʻqib yozib olasiz,
+  keyin **Men** bilan oʻz qiroatingizni, **Qori** bilan namunani tinglab solishtirasiz.
+  Yozuvlar faqat shu qurilmada saqlanadi.
 - Telefonda bitta sahifa, kompyuterda ochiq kitob (ikki sahifa yonma-yon).
-- Kompyuterda klaviatura: ← → sahifa, ↑ ↓ oyat, Probel ijro/pauza.
+- Kompyuterda klaviatura: ← → sahifa, ↑ ↓ oyat, Probel ijro/pauza, mashqda R yozishni boshlaydi/toʻxtatadi.
 - Ilova internetsiz ishlaydi.
 
 ## Tuzilishi
@@ -35,8 +38,10 @@ Hozircha 30-poradagi 90–114-suralar bor (mushafning 594–604-betlari).
 Manba fayllar (mushaf PDF va `NNN.mp3`) repoga kiritilmaydi. Ular loyiha ildizida turadi.
 
 1. `NNN.mp3` audio fayllarni loyiha ildiziga qoʻying.
-2. `tools/prepare.py` ichida `SURAHS` (nomi, oyatlar soni) va `PAGES` roʻyxatini toʻldiring.
-   `PAGES` har bir sahifa qaysi sura va oyatdan boshlanishini koʻrsatadi.
+2. `tools/prepare.py` ichida `SURAHS` (nomi, oyatlar soni), `FIRST_PAGE` va `PAGES` ni yangilang.
+   `PAGES` da birinchi sahifa qaysi sura va oyatdan boshlanishi yoziladi; qolgan sahifalarni
+   skript oyat belgilarini sanab oʻzi davom ettiradi. Roʻyxatdagi boshqa sahifalar nazorat nuqtasi:
+   sanoq ularga aniq yetib kelmasa, skript xato beradi.
    Agar sahifa sarlavhasiz basmaladan boshlansa, oyat raqami `0` boʻladi.
 3. Yangi suralarni `tools/husary_ayah_durations.json` ga ham qoʻshing.
    Bu maʼlumot everyayah.com dagi `Husary_128kbps` fayllari hajmidan olinadi.

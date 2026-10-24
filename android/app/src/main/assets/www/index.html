@@ -31,9 +31,9 @@
           <span id="resumeText">Davom ettirish</span>
         </button>
       </div>
-      <p class="section-label" id="listLabel">Suralar</p>
-      <ul id="surahList"></ul>
-      <p class="list-note">Sahifadagi istalgan oyatni bossangiz, oʻsha oyat oʻqiladi.</p>
+      <div id="surahGroups"></div>
+      <p class="list-note">Sahifadagi istalgan oyatni bossangiz, oʻsha oyat oʻqiladi.
+        Yuqoridagi mikrofon tugmasi bilan oʻzingiz oʻqib, yozib olishingiz mumkin.</p>
     </div>
   </div>
 </section>
@@ -47,6 +47,9 @@
       <h1 id="readerTitle"></h1>
       <p id="readerSub"></p>
     </div>
+    <button id="practiceBtn" class="icon mic" aria-label="Oʻzim oʻqiyman: ovoz yozish" aria-pressed="false">
+      <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+    </button>
   </header>
   <div class="stage">
     <div id="pager" dir="rtl"></div>
@@ -56,6 +59,17 @@
     <button id="turnPrev" class="turn" aria-label="Oldingi sahifa">
       <svg viewBox="0 0 24 24"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>
     </button>
+
+    <div id="recPanel" class="rec-panel hidden" role="dialog" aria-labelledby="recPanelTitle">
+      <div class="rec-panel-head">
+        <h2 id="recPanelTitle">Yozuvlar</h2>
+        <button id="recPanelClose" class="icon" aria-label="Yopish">
+          <svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
+        </button>
+      </div>
+      <ul id="recList"></ul>
+      <p id="recEmpty" class="rec-empty">Bu sura boʻyicha hali yozuv yoʻq. Qizil tugmani bosib, oʻqishni boshlang.</p>
+    </div>
   </div>
   <footer id="player">
     <div class="player-inner">
@@ -75,6 +89,41 @@
         <button id="repeat" class="chip" aria-label="Takrorlash">
           <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg>
           <span>Takror</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="practice-inner">
+      <div class="prac-top">
+        <div id="pracLabel" class="prac-label"></div>
+        <div class="seg" role="group" aria-label="Nimani oʻqiysiz">
+          <button id="scopeAyah" aria-pressed="false">Oyat</button>
+          <button id="scopeSurah" aria-pressed="true">Sura</button>
+        </div>
+      </div>
+      <div class="prac-rec">
+        <span class="rec-dot"></span>
+        <span>Yozilmoqda</span>
+        <span id="recTime" class="rec-time">0:00</span>
+        <span class="meter"><i id="recLevel"></i></span>
+      </div>
+      <div class="controls">
+        <button id="refPlay" class="chip" aria-label="Qori qiroatini tinglash">
+          <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
+          <span>Qori</span>
+        </button>
+        <button id="recBtn" class="rec-btn" aria-label="Yozishni boshlash">
+          <span class="rec-shape"></span>
+        </button>
+        <button id="minePlay" class="chip" aria-label="Oʻz qiroatimni tinglash" disabled>
+          <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
+          <span>Men</span>
+        </button>
+        <button id="recListBtn" class="icon" aria-label="Yozuvlar roʻyxati">
+          <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+          <span id="recCount" class="badge hidden"></span>
         </button>
       </div>
     </div>
