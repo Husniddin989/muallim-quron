@@ -302,7 +302,8 @@
   function showPage(p, smooth) {
     var el = pageEls[p];
     if (!el) return;
-    fillPage(p);
+    // the page, its partner in a spread and the next turn each way are drawn right away
+    for (var q = p - 2; q <= p + 2; q++) if (pageEls[q]) fillPage(q);
     if (state.spread && p % 2 === 0) el = el.previousElementSibling || el; // the right-hand page of the spread
     el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', inline: 'start', block: 'nearest' });
   }
