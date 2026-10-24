@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Muallim Qurʼon</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<section id="list" class="screen">
+  <header class="bar">
+    <div class="bar-text">
+      <h1>Muallim Qurʼon</h1>
+      <p>Qori: Mahmud Xalil al-Husariy</p>
+    </div>
+  </header>
+  <div class="list-body">
+    <div class="list-inner">
+      <div class="actions">
+        <button id="playAll" class="action primary">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <span>Boshidan oxirigacha tinglash</span>
+        </button>
+        <button id="resume" class="action hidden">
+          <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+          <span id="resumeText">Davom ettirish</span>
+        </button>
+      </div>
+      <p class="section-label" id="listLabel">Suralar</p>
+      <ul id="surahList"></ul>
+      <p class="list-note">Sahifadagi istalgan oyatni bossangiz, oʻsha oyat oʻqiladi.</p>
+    </div>
+  </div>
+</section>
+
+<section id="reader" class="screen hidden">
+  <header class="bar">
+    <button id="back" class="icon" aria-label="Suralar roʻyxatiga qaytish">
+      <svg viewBox="0 0 24 24"><path d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></svg>
+    </button>
+    <div class="bar-text">
+      <h1 id="readerTitle"></h1>
+      <p id="readerSub"></p>
+    </div>
+  </header>
+  <div class="stage">
+    <div id="pager" dir="rtl"></div>
+    <button id="turnNext" class="turn" aria-label="Keyingi sahifa">
+      <svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z"/></svg>
+    </button>
+    <button id="turnPrev" class="turn" aria-label="Oldingi sahifa">
+      <svg viewBox="0 0 24 24"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>
+    </button>
+  </div>
+  <footer id="player">
+    <div class="player-inner">
+      <div id="nowLabel">Tinglash uchun oyatni bosing</div>
+      <div class="controls">
+        <button id="mode" class="chip" aria-label="Oʻqish rejimi"></button>
+        <button id="prev" class="icon" aria-label="Oldingi oyat">
+          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button id="play" class="play" aria-label="Ijro etish yoki toʻxtatish">
+          <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
+        </button>
+        <button id="next" class="icon" aria-label="Keyingi oyat">
+          <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg>
+        </button>
+        <button id="repeat" class="chip" aria-label="Takrorlash">
+          <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg>
+          <span>Takror</span>
+        </button>
+      </div>
+    </div>
+  </footer>
+</section>
+
+<div id="toast" class="hidden" role="status" aria-live="polite"></div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

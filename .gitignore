@@ -1,0 +1,20 @@
+# Manba fayllar: katta hajmli, repoga kiritilmaydi (tools/prepare.py ularni o'qiydi)
+/*.mp3
+/*.pdf
+/*.apk
+/*.textClipping
+/sayt/
+
+# Imzo kaliti: hech qachon repoga qo'ymang
+android/keystore.properties
+android/*.jks
+
+# Android build
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+.DS_Store
+.claude/
+__pycache__/
