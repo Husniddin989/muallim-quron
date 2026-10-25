@@ -16,13 +16,16 @@
     302, 322, 342, 362, 382, 402, 422, 442, 462, 482, 502, 522, 542, 562, 582];
   var MONTHS = ['yan', 'fev', 'mar', 'apr', 'may', 'iyun', 'iyul', 'avg', 'sen', 'okt', 'noy', 'dek'];
   var MAX_RECORDING_MS = 20 * 60 * 1000;
-  // whole-surah recitations (NNN.mp3) on Cloudflare R2; ?audio=<url> overrides it for testing
-  var AUDIO_BASE = (function () {
+  // Whole-surah recitations (NNN.mp3) on Cloudflare R2, under our own domain and,
+  // as a fallback for networks that cannot reach it, the bucket's r2.dev address.
+  // ?audio=<url>[,<url>] overrides them for testing.
+  var AUDIO_BASES = (function () {
     try {
       var q = new URLSearchParams(location.search).get('audio');
-      if (q) return q.replace(/\/?$/, '/');
+      if (q) return q.split(',').map(function (u) { return u.replace(/\/?$/, '/'); });
     } catch (e) { /* no query string support */ }
-    return 'https://audio.muallim-quron.uz/quron/';
+    return ['https://audio.muallim-quron.uz/quron/',
+      'https://pub-81726ee9fa7c43fc978b4d5669dfb239.r2.dev/quron/'];
   })();
   var isApp = !!(native && native.keepScreenOn);
 
@@ -58,7 +61,18 @@
   function firstIndex(s) { return hasBasmala(s) ? 0 : 1; }
   // [start, end] seconds of an ayah (0 = basmala) in the surah's recitation
   function span(s, a) { return bySurah[s].t[hasBasmala(s) ? a : a - 1]; }
-  function remoteUrl(s) { return AUDIO_BASE + pad(s) + '.mp3'; }
+  // the host that last worked is remembered for a day, then our own domain is tried again
+  var audioHost = (function () {
+    var h = store.get('audioHost', null);
+    return h && Date.now() - h.at < 864e5 && h.i < AUDIO_BASES.length ? h.i : 0;
+  })();
+  function remoteUrl(s) { return AUDIO_BASES[audioHost] + pad(s) + '.mp3'; }
+  function switchHost() {
+    if (AUDIO_BASES.length < 2) return false;
+    audioHost = (audioHost + 1) % AUDIO_BASES.length;
+    store.set('audioHost', { i: audioHost, at: Date.now() });
+    return true;
+  }
   function megabytes(bytes) {
     var mb = bytes / 1048576;
     return mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : mb.toFixed(1) + ' MB';
@@ -402,7 +416,8 @@
   }
 
   // Plays one ayah out of the surah's recitation; engine.end is where it stops.
-  var engine = { url: null, end: null, seekTo: null, timer: 0 };
+  var engine = { url: null, end: null, seekTo: null, timer: 0, lastTime: 0, retries: 0, retryTimer: 0 };
+  var MAX_RETRIES = 3;
 
   function playAt(s, a) {
     focus = s;
@@ -417,6 +432,9 @@
     state.s = s;
     state.a = a;
     engine.end = sp[1];
+    engine.retries = 0;
+    engine.lastTime = sp[0];
+    clearTimeout(engine.retryTimer);
     if (engine.url !== url) {
       engine.url = url;
       engine.seekTo = sp[0];
@@ -513,13 +531,24 @@
   }
 
   audio.addEventListener('play', function () { mine.pause(); setPlaying(true); });
-  audio.addEventListener('playing', armEnd);
+  audio.addEventListener('playing', function () {
+    engine.retries = 0;
+    if (state.s !== null) $('nowLabel').textContent = ayahLabel(state.s, state.a);
+    armEnd();
+  });
+  // a big recitation can take a few seconds to start: say so
+  audio.addEventListener('waiting', function () {
+    if (state.s !== null && engine.end !== null) {
+      $('nowLabel').textContent = ayahLabel(state.s, state.a) + ' · yuklanmoqda…';
+    }
+  });
   audio.addEventListener('seeked', armEnd);
   audio.addEventListener('loadedmetadata', function () {
     if (engine.seekTo !== null && Math.abs(audio.currentTime - engine.seekTo) > 0.25) audio.currentTime = engine.seekTo;
     engine.seekTo = null;
   });
   audio.addEventListener('timeupdate', function () {
+    if (!audio.seeking) engine.lastTime = audio.currentTime;
     if (engine.end !== null && !audio.seeking && audio.currentTime >= engine.end - 0.04) ayahDone();
   });
   audio.addEventListener('pause', function () { clearTimeout(engine.timer); setPlaying(false); });
@@ -527,11 +556,42 @@
     setPlaying(false);
     if (engine.end !== null) ayahDone();
   });
+  // A dropped connection while streaming fires "error": reconnect and carry on
+  // from where it stopped, and only give up after a few tries.
   audio.addEventListener('error', function () {
+    var code = audio.error ? audio.error.code : 0;
+    if (!audio.getAttribute('src') || code === 1) return;  // aborted on purpose
+    var s = state.s, a = state.a;
+    if (s !== null && engine.url && engine.end !== null && engine.retries < MAX_RETRIES) {
+      engine.retries++;
+      var delay = 1000 * engine.retries;
+      // nothing at all came from this host: try the other one straight away
+      if (audio.readyState === 0 && engine.url === remoteUrl(s) && switchHost()) {
+        engine.url = remoteUrl(s);
+        delay = 0;
+      }
+      var url = engine.url;
+      var sp = span(s, a);
+      var at = engine.lastTime > sp[0] && engine.lastTime < sp[1] ? engine.lastTime : sp[0];
+      $('nowLabel').textContent = ayahLabel(s, a) + ' · qayta ulanmoqda…';
+      clearTimeout(engine.retryTimer);
+      engine.retryTimer = setTimeout(function () {
+        if (state.s !== s || state.a !== a || engine.url !== url) return;  // the user moved on
+        engine.seekTo = at;
+        audio.src = url;
+        audio.currentTime = at;
+        var pr = audio.play();
+        if (pr && pr.catch) pr.catch(function () { /* reported by the error event */ });
+      }, delay);
+      return;
+    }
     setPlaying(false);
     engine.url = null;
     engine.end = null;
-    if (audio.src) toast('Audio yuklanmadi. Internetni tekshiring yoki surani yuklab oling.');
+    if (s !== null) $('nowLabel').textContent = ayahLabel(s, a);
+    toast(navigator.onLine === false
+      ? 'Internet yoʻq. Bu surani tinglash uchun uni oldin yuklab oling.'
+      : 'Audio yuklanmadi. Oyatni yana bir bor bosing yoki surani yuklab oling.');
   });
 
   // ---------- recordings (kept on this device)
@@ -677,6 +737,7 @@
     downloads.waiting[n] = w;
     downloads.busy[n] = 0;
     updateDownloadUi(n);
+    w.hosts = 1;
     native.download(n, remoteUrl(n));
     return w.promise;
   }
@@ -688,8 +749,15 @@
       updateDownloadUi(n);
       return;
     }
-    delete downloads.busy[n];
     var w = downloads.waiting[n];
+    if (status === 'error' && w && w.hosts < AUDIO_BASES.length && switchHost()) {
+      w.hosts++;
+      downloads.busy[n] = 0;
+      updateDownloadUi(n);
+      native.download(n, remoteUrl(n));
+      return;
+    }
+    delete downloads.busy[n];
     delete downloads.waiting[n];
     if (status === 'done') {
       downloads.have[n] = bySurah[n].size;
