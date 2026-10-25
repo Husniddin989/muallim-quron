@@ -22,7 +22,7 @@
       var q = new URLSearchParams(location.search).get('audio');
       if (q) return q.replace(/\/?$/, '/');
     } catch (e) { /* no query string support */ }
-    return 'https://pub-81726ee9fa7c43fc978b4d5669dfb239.r2.dev/quron/';
+    return 'https://audio.muallim-quron.uz/quron/';
   })();
   var isApp = !!(native && native.keepScreenOn);
 

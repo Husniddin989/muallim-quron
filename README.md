@@ -4,7 +4,7 @@ Tajvid mushafi sahifalari va Mahmud Xalil al-Husariy qiroati.
 Sahifadagi istalgan oyatni bossangiz, oʻsha oyat oʻqiladi. Butun surani yoki
 boshidan oxirigacha ham tinglash mumkin.
 
-- **Sayt:** https://husniddin989.github.io/muallim-quron/
+- **Sayt:** https://www.muallim-quron.uz/ (nusxasi: https://husniddin989.github.io/muallim-quron/)
 - **Android ilova (APK):** [Releases](https://github.com/Husniddin989/muallim-quron/releases/latest)
 
 Butun Qurʼon: 114 sura, 6236 oyat, mushafning 604 sahifasi.
@@ -30,7 +30,7 @@ Butun Qurʼon: 114 sura, 6236 oyat, mushafning 604 sahifasi.
 | Papka | Nima bor |
 | --- | --- |
 | `android/app/src/main/assets/www/` | Interfeys (HTML/CSS/JS), sahifa rasmlari va oyat vaqtlari (`data.js`). Ilova ham, sayt ham shu papkadan ishlaydi. |
-| Cloudflare R2, `quron` bucket | Suralarning toʻliq audiosi: `quron/070.mp3` … `quron/114.mp3`. Manzili `app.js` dagi `AUDIO_BASE` da. |
+| Cloudflare R2, `quron` bucket | Suralarning toʻliq audiosi: `https://audio.muallim-quron.uz/quron/001.mp3` … `114.mp3`. Manzili `app.js` dagi `AUDIO_BASE` da. |
 | `android/` | Android loyihasi (WebView oynasi). |
 | `tools/prepare.py` | Mushaf PDF va sura mp3 fayllaridan sahifa rasmlari, oyat hududlari va har bir oyatning audiodagi vaqtini yasaydi. |
 | `tools/husary_ayah_durations.json` | Husariy qiroatidagi har bir oyat davomiyligi. Qori uzun oyat ichida toʻxtagan joylarni oyat oxiridan ajratish uchun kerak. |
