@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "echo 'static site: android/app/src/main/assets/www'",
+  "outputDirectory": "android/app/src/main/assets/www",
+  "headers": [
+    {
+      "source": "/pages/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800" }]
+    }
+  ]
+}

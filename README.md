@@ -35,6 +35,7 @@ Butun Qurʼon: 114 sura, 6236 oyat, mushafning 604 sahifasi.
 | `tools/prepare.py` | Mushaf PDF va sura mp3 fayllaridan sahifa rasmlari, oyat hududlari va har bir oyatning audiodagi vaqtini yasaydi. |
 | `tools/husary_ayah_durations.json` | Husariy qiroatidagi har bir oyat davomiyligi. Qori uzun oyat ichida toʻxtagan joylarni oyat oxiridan ajratish uchun kerak. |
 | `.github/workflows/pages.yml` | `main` ga push qilinganda saytni GitHub Pages'ga joylaydi. |
+| `vercel.json` | Vercel uchun: sayt `android/app/src/main/assets/www` papkasidan beriladi. |
 
 ## Yangi suralar qoʻshish
 
