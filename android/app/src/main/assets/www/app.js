@@ -827,7 +827,12 @@
 
   // the app stores a dua next to the surahs as files/audio/<s*1000 + first ayah>.mp3
   function duaKey(d) { return d.s * 1000 + d.a[0]; }
-  function duaRemote(d) { return AUDIO_BASES[audioHost] + 'dua/' + d.id + '.mp3'; }
+  // on R2 the duas sit next to the surah folder: <host>/dua/duolar/SSS-AAA.mp3
+  // (with ?audio= for testing: <base>/dua/SSS-AAA.mp3)
+  function duaRemote(d) {
+    var base = AUDIO_BASES[audioHost];
+    return (/\/quron\/$/.test(base) ? base.replace(/quron\/$/, 'dua/duolar/') : base + 'dua/') + d.id + '.mp3';
+  }
   function duaLocal(d) { return isApp && downloads.have[duaKey(d)] ? native.fileUrl(duaKey(d)) : null; }
   function duaSource(d) {
     var a = d.a[0] === d.a[1] ? d.a[0] : d.a[0] + '–' + d.a[1];

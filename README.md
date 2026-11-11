@@ -36,7 +36,7 @@ Butun Qurʼon: 114 sura, 6236 oyat, mushafning 604 sahifasi.
 | Cloudflare R2, `quron` bucket | Suralarning toʻliq audiosi: `https://audio.muallim-quron.uz/quron/001.mp3` … `114.mp3`. Manzili `app.js` dagi `AUDIO_BASE` da. |
 | `android/` | Android loyihasi (WebView oynasi). |
 | `tools/prepare.py` | Mushaf PDF va sura mp3 fayllaridan sahifa rasmlari, oyat hududlari va har bir oyatning audiodagi vaqtini yasaydi. |
-| `tools/duas.py` | Duolarni everyayah.com dagi Husariy oyat fayllaridan qirqib oladi (`duolar/SSS-AAA.mp3`) va `www/duas.js` ni yasaydi: `python3 tools/duas.py --export duolar android/app/src/main/assets/www`. Audio R2 dagi `quron/dua/` papkasiga yuklanadi. |
+| `tools/duas.py` | Duolarni everyayah.com dagi Husariy oyat fayllaridan qirqib oladi (`duolar/SSS-AAA.mp3`) va `www/duas.js` ni yasaydi: `python3 tools/duas.py --export duolar android/app/src/main/assets/www`. Audio R2 da `dua/duolar/` papkasida: `https://audio.muallim-quron.uz/dua/duolar/002-201.mp3`. |
 | `tools/husary_ayah_durations.json` | Husariy qiroatidagi har bir oyat davomiyligi. Qori uzun oyat ichida toʻxtagan joylarni oyat oxiridan ajratish uchun kerak. |
 | `.github/workflows/pages.yml` | `main` ga push qilinganda saytni GitHub Pages'ga joylaydi. |
 | `vercel.json` | Vercel uchun: sayt `android/app/src/main/assets/www` papkasidan beriladi. |
