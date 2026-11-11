@@ -303,6 +303,25 @@ svg { width: 24px; height: 24px; fill: currentColor; flex: none; }
 .dl.armed { width: auto; padding: 0 10px; color: var(--rec); font-size: 13px; }
 .list-note { margin: 0; color: var(--muted); font-size: 13px; text-align: center; }
 
+/* saved surahs: a star that is outlined until the surah is saved */
+.save {
+  width: 36px;
+  height: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  color: var(--muted);
+}
+.save:hover { background: var(--surface); }
+.star svg path { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.star[aria-pressed="true"] svg path { fill: currentColor; }
+.save[aria-pressed="true"], .bar .star[aria-pressed="true"] { color: var(--gold); }
+.save svg { width: 22px; height: 22px; }
+.saved-empty { padding: 24px 8px; line-height: 1.6; }
+.saved-empty svg { width: 16px; height: 16px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 2; }
+@media (max-width: 420px) { .surah { gap: 8px; } }
+
 /* tabs: Suralar | Duolar */
 .tabs {
   flex: none;

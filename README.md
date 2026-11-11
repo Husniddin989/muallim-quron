@@ -28,6 +28,8 @@ Butun Qurʼon: 114 sura, 6236 oyat, mushafning 604 sahifasi.
   «Mushafda koʻrish». Ilovada duolarni (22 MB) bir tugma bilan yuklab olish mumkin.
 - **Qorongʻi mavzu**: sarlavhadagi tugma bilan avtomatik (telefon sozlamasi boʻyicha), qorongʻi yoki yorugʻ.
   Qorongʻida mushaf sahifasi ham qorayadi, tajvid ranglari saqlanadi.
+- **Saqlangan**: istalgan surani yulduzcha tugmasi bilan saqlab qoʻyish (roʻyxatda yoki mushafni oʻqiyotganda).
+  Saqlangan suralar alohida «Saqlangan» boʻlimida turadi, tez topiladi.
 - Suralar roʻyxatida nomi (oʻzbekcha yoki arabcha) yoki raqami boʻyicha qidiruv.
 
 ## Tuzilishi

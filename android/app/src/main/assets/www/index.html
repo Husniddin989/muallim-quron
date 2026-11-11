@@ -34,6 +34,7 @@
   <nav class="tabs" role="tablist" aria-label="Boʻlimlar">
     <div class="tabs-inner">
       <button id="tabSurahs" role="tab" aria-selected="true" aria-controls="surahsPane">Suralar</button>
+      <button id="tabSaved" role="tab" aria-selected="false" aria-controls="savedPane">Saqlangan</button>
       <button id="tabDuas" role="tab" aria-selected="false" aria-controls="duasPane">Duolar</button>
     </div>
   </nav>
@@ -61,6 +62,15 @@
       <div id="surahGroups"></div>
       <p class="list-note">Sahifadagi istalgan oyatni bossangiz, oʻsha oyat oʻqiladi.
         Yuqoridagi mikrofon tugmasi bilan oʻzingiz oʻqib, yozib olishingiz mumkin.</p>
+    </div>
+  </div>
+  <div id="savedPane" class="list-body hidden" role="tabpanel">
+    <div class="list-inner">
+      <ul id="savedList" class="surah-list hidden"></ul>
+      <p id="savedEmpty" class="list-note saved-empty">Hali saqlangan sura yoʻq.
+        Suralar roʻyxatida yoki mushafni oʻqiyotganda yulduzcha
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.3 18.2 21l-1.6-7L22 9.2l-7.2-.6L12 2 9.2 8.6 2 9.2 7.5 14l-1.7 7z"/></svg>
+        tugmasini bossangiz, sura shu yerga qoʻshiladi.</p>
     </div>
   </div>
   <div id="duasPane" class="list-body hidden" role="tabpanel">
@@ -95,6 +105,9 @@
       <h1 id="readerTitle"></h1>
       <p id="readerSub"></p>
     </div>
+    <button id="saveBtn" class="icon star" aria-label="Surani saqlash" aria-pressed="false">
+      <svg viewBox="0 0 24 24"><path d="M12 17.3 18.2 21l-1.6-7L22 9.2l-7.2-.6L12 2 9.2 8.6 2 9.2 7.5 14l-1.7 7z"/></svg>
+    </button>
     <button id="practiceBtn" class="icon mic" aria-label="Oʻzim oʻqiyman: ovoz yozish" aria-pressed="false">
       <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
     </button>

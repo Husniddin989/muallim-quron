@@ -166,10 +166,13 @@
       '<span class="meta"><b>' + s.uz + '</b><small>' + s.ayahs + ' oyat · ' +
       (isApp ? megabytes(s.size) : s.page + '-bet') + '</small></span>' +
       '<span class="ar">' + s.ar + '</span>' +
+      '<button class="save star" data-s="' + s.n + '"></button>' +
       (isApp ? '<button class="dl" data-s="' + s.n + '"></button>' : '') +
       '<button class="listen" aria-label="' + s.uz + ' surasini tinglash">' +
       '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>';
+    paintSave(li.querySelector('.save'), s.n);
     li.addEventListener('click', function (e) {
+      if (e.target.closest('.save')) { toggleSaved(s.n); return; }
       if (e.target.closest('.dl')) { onDownloadTap(s.n, e.target.closest('.dl')); return; }
       focus = s.n;
       openReader(s.page);
@@ -177,6 +180,59 @@
       else flash(key(s.n, -1));
     });
     return li;
+  }
+
+  // ---------- saved surahs
+
+  var STAR = '<svg viewBox="0 0 24 24"><path d="M12 17.3 18.2 21l-1.6-7L22 9.2l-7.2-.6L12 2 9.2 8.6 2 9.2 7.5 14l-1.7 7z"/></svg>';
+  var saved = store.get('saved', []).filter(function (n) { return bySurah[n]; });
+
+  function isSaved(n) { return saved.indexOf(n) >= 0; }
+
+  function paintSave(btn, n) {
+    if (!btn) return;
+    if (!btn.firstChild) btn.innerHTML = STAR;
+    var on = isSaved(n);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.setAttribute('aria-label', bySurah[n].uz + (on ? ' saqlangan. Olib tashlash uchun bosing' : ' surasini saqlash'));
+  }
+
+  function toggleSaved(n) {
+    if (isSaved(n)) saved.splice(saved.indexOf(n), 1);
+    else saved.push(n);
+    saved.sort(function (a, b) { return a - b; });
+    store.set('saved', saved);
+    Array.prototype.forEach.call(document.querySelectorAll('.save[data-s="' + n + '"]'), function (b) { paintSave(b, n); });
+    renderSaved();
+    updateSaveBtn();
+    toast(isSaved(n) ? bySurah[n].uz + ' surasi saqlandi' : bySurah[n].uz + ' saqlanganlardan olib tashlandi');
+  }
+
+  function renderSaved() {
+    var ul = $('savedList');
+    ul.innerHTML = '';
+    saved.forEach(function (n) { ul.appendChild(surahRow(bySurah[n])); });
+    ul.classList.toggle('hidden', !saved.length);
+    $('savedEmpty').classList.toggle('hidden', saved.length > 0);
+    $('tabSaved').textContent = saved.length ? 'Saqlangan · ' + saved.length : 'Saqlangan';
+    if (isApp) saved.forEach(function (n) { updateDownloadUi(n); });
+  }
+
+  // the surah the reader is on: the one last opened, tapped or played if it is on screen
+  // (a page can hold the end of one surah and the start of the next), else the first one shown
+  function readerSurah() {
+    if (focus !== null && bySurah[focus] && onScreen(focus)) return focus;
+    return firstSurahOnScreen() || focus;
+  }
+
+  function updateSaveBtn() {
+    var n = readerSurah();
+    var btn = $('saveBtn');
+    btn.classList.toggle('hidden', !n);
+    if (!n) return;
+    var on = isSaved(n);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.setAttribute('aria-label', on ? bySurah[n].uz + ' saqlangan. Olib tashlash' : bySurah[n].uz + ' surasini saqlash');
   }
 
   function updateResume() {
@@ -311,6 +367,7 @@
     store.set('page', vp[0]);
     $('turnPrev').disabled = vp[0] <= pageNums[0];
     $('turnNext').disabled = vp[vp.length - 1] >= pageNums[pageNums.length - 1];
+    updateSaveBtn();
   }
 
   function showPage(p, smooth) {
@@ -365,6 +422,7 @@
     state.page = target;
     void $('pager').offsetWidth;  // lay the pager out before scrolling it
     showPage(target, false);
+    updateSaveBtn();
   }
 
   function closeReader() {
@@ -380,6 +438,7 @@
 
   function onRegionTap(s, a) {
     focus = s;
+    updateSaveBtn();
     if (!bySurah[s] || !bySurah[s].t) {
       flash(key(s, a));
       toast('Bu sura audiosi hali qoʻshilmagan');
@@ -424,6 +483,7 @@
   function playAt(s, a) {
     exitDuaView();
     focus = s;
+    updateSaveBtn();
     var sp = span(s, a);
     var url = (isApp && localUrl(s)) || remoteUrl(s);
     if (url === remoteUrl(s) && navigator.onLine === false) {
@@ -687,8 +747,9 @@
 
   function updateDownloadUi(n) {
     if (n >= 1000) { updateDuaDownload(); return; }
-    var btn = document.querySelector('.dl[data-s="' + n + '"]');
-    if (btn && !btn.classList.contains('armed')) {
+    // a saved surah has a second row (and button) in the Saqlangan tab
+    Array.prototype.forEach.call(document.querySelectorAll('.dl[data-s="' + n + '"]'), function (btn) {
+      if (btn.classList.contains('armed')) return;
       var busy = downloads.busy[n];
       btn.classList.toggle('done', !!downloads.have[n]);
       btn.classList.toggle('busy', busy !== undefined);
@@ -702,7 +763,7 @@
         btn.innerHTML = ICON_DOWNLOAD;
         btn.setAttribute('aria-label', bySurah[n].uz + ' surasini yuklab olish, ' + megabytes(bySurah[n].size));
       }
-    }
+    });
     updateDownloadAll();
   }
 
@@ -1105,12 +1166,16 @@
 
   // ---------- tabs
 
+  var TABS = { surahs: ['tabSurahs', 'surahsPane'], saved: ['tabSaved', 'savedPane'], duas: ['tabDuas', 'duasPane'] };
+  var tab = 'surahs';
+
   function showTab(name) {
-    var duas = name === 'duas';
-    $('tabSurahs').setAttribute('aria-selected', duas ? 'false' : 'true');
-    $('tabDuas').setAttribute('aria-selected', duas ? 'true' : 'false');
-    $('surahsPane').classList.toggle('hidden', duas);
-    $('duasPane').classList.toggle('hidden', !duas);
+    if (!TABS[name]) name = 'surahs';
+    tab = name;
+    Object.keys(TABS).forEach(function (t) {
+      $(TABS[t][0]).setAttribute('aria-selected', t === name ? 'true' : 'false');
+      $(TABS[t][1]).classList.toggle('hidden', t !== name);
+    });
     store.set('tab', name);
   }
 
@@ -1449,6 +1514,11 @@
     $('themeBtn').addEventListener('click', nextTheme);
     $('tabSurahs').addEventListener('click', function () { showTab('surahs'); });
     $('tabDuas').addEventListener('click', function () { showTab('duas'); });
+    $('tabSaved').addEventListener('click', function () { showTab('saved'); });
+    $('saveBtn').addEventListener('click', function () {
+      var n = readerSurah();
+      if (n) toggleSaved(n);
+    });
     // pages run right to left: the next page is on the left
     $('turnNext').addEventListener('click', function () { turnPage(1); });
     $('turnPrev').addEventListener('click', function () { turnPage(-1); });
@@ -1497,7 +1567,7 @@
     onSystemTheme: function () { if (theme === 'auto') applyTheme(); },
     back: function () {
       if (!readerOpen()) {
-        if ($('duasPane').classList.contains('hidden')) return false;
+        if (tab === 'surahs') return false;
         showTab('surahs');
         return true;
       }
@@ -1510,8 +1580,9 @@
 
   applyTheme();
   renderList();
+  renderSaved();
   renderDuas();
-  showTab(store.get('tab', 'surahs') === 'duas' ? 'duas' : 'surahs');
+  showTab(store.get('tab', 'surahs'));
   buildPages();
   bindControls();
   setMode(state.mode);
