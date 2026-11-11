@@ -192,7 +192,7 @@ public class MainActivity extends Activity {
             });
         }
 
-        /** {"surah number": size in bytes} for every downloaded recitation. */
+        /** {"file number": size in bytes} for every downloaded recitation and dua. */
         @JavascriptInterface
         public String downloaded() {
             JSONObject o = new JSONObject();
@@ -200,9 +200,10 @@ public class MainActivity extends Activity {
             if (files != null) {
                 for (File f : files) {
                     String name = f.getName();
-                    if (!name.matches("\\d{3}\\.mp3")) continue;
+                    // NNN.mp3 for surahs, larger numbers for duas (surah * 1000 + ayah)
+                    if (!name.matches("\\d{3,6}\\.mp3")) continue;
                     try {
-                        o.put(String.valueOf(Integer.parseInt(name.substring(0, 3))), f.length());
+                        o.put(String.valueOf(Integer.parseInt(name.substring(0, name.length() - 4))), f.length());
                     } catch (JSONException ignored) {
                         // a number key cannot fail
                     }

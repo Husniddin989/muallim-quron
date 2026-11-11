@@ -520,7 +520,7 @@
   }
 
   function keepAwake() {
-    var on = !audio.paused || !mine.paused || !!rec.mr;
+    var on = !audio.paused || !mine.paused || !duaAudio.paused || !!rec.mr;
     if (native && native.keepScreenOn) native.keepScreenOn(on);
   }
 
@@ -530,7 +530,7 @@
     keepAwake();
   }
 
-  audio.addEventListener('play', function () { mine.pause(); setPlaying(true); });
+  audio.addEventListener('play', function () { mine.pause(); duaAudio.pause(); setPlaying(true); });
   audio.addEventListener('playing', function () {
     engine.retries = 0;
     if (state.s !== null) $('nowLabel').textContent = ayahLabel(state.s, state.a);
@@ -662,10 +662,13 @@
   var ICON_DONE = '<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
 
   function localUrl(n) { return downloads.have[n] ? native.fileUrl(n) : null; }
+  // numbers from 1000 up are duas (see duaKey), below are surahs
+  function downloadUrl(n) { return n >= 1000 ? duaRemote(duaByKey[n]) : remoteUrl(n); }
 
   function loadDownloads() {
     try { downloads.have = JSON.parse(native.downloaded()) || {}; } catch (e) { downloads.have = {}; }
     playable.forEach(function (s) { updateDownloadUi(s.n); });
+    updateDuaDownload();
     dropBrowserCopies();
   }
 
@@ -679,6 +682,7 @@
   }
 
   function updateDownloadUi(n) {
+    if (n >= 1000) { updateDuaDownload(); return; }
     var btn = document.querySelector('.dl[data-s="' + n + '"]');
     if (btn && !btn.classList.contains('armed')) {
       var busy = downloads.busy[n];
@@ -738,7 +742,7 @@
     downloads.busy[n] = 0;
     updateDownloadUi(n);
     w.hosts = 1;
-    native.download(n, remoteUrl(n));
+    native.download(n, downloadUrl(n));
     return w.promise;
   }
 
@@ -754,14 +758,14 @@
       w.hosts++;
       downloads.busy[n] = 0;
       updateDownloadUi(n);
-      native.download(n, remoteUrl(n));
+      native.download(n, downloadUrl(n));
       return;
     }
     delete downloads.busy[n];
     delete downloads.waiting[n];
     if (status === 'done') {
-      downloads.have[n] = bySurah[n].size;
-      if (!downloads.all) toast(bySurah[n].uz + ' surasi yuklab olindi');
+      downloads.have[n] = n >= 1000 ? duaByKey[n].size : bySurah[n].size;
+      if (!downloads.all && n < 1000) toast(bySurah[n].uz + ' surasi yuklab olindi');
     } else if (status === 'nospace') {
       toast('Telefonda joy yetmadi');
     } else if (status === 'error') {
@@ -808,6 +812,211 @@
       });
     };
     next();
+  }
+
+
+  // ---------- Quranic duas (tools/duas.py cuts them out of al-Husary's recitation)
+
+  var DUAS = window.DUAS || [];
+  var DUA_GROUPS = ['«Rabbanā» bilan boshlanuvchi duolar', 'Boshqa Qurʼoniy duolar'];
+  var duaByKey = {};
+  DUAS.forEach(function (d) { duaByKey[duaKey(d)] = d; });
+  var duaAudio = new Audio();
+  duaAudio.preload = 'none';
+  var dua = { i: null, all: false, repeat: store.get('duaRepeat', false), retries: 0, queue: false };
+
+  // the app stores a dua next to the surahs as files/audio/<s*1000 + first ayah>.mp3
+  function duaKey(d) { return d.s * 1000 + d.a[0]; }
+  function duaRemote(d) { return AUDIO_BASES[audioHost] + 'dua/' + d.id + '.mp3'; }
+  function duaLocal(d) { return isApp && downloads.have[duaKey(d)] ? native.fileUrl(duaKey(d)) : null; }
+  function duaSource(d) {
+    var a = d.a[0] === d.a[1] ? d.a[0] : d.a[0] + '–' + d.a[1];
+    return bySurah[d.s].uz + ' surasi, ' + a + '-oyat';
+  }
+
+  function renderDuas() {
+    var n = 0;
+    DUA_GROUPS.forEach(function (title, g) {
+      var items = DUAS.filter(function (d) { return d.g === g; });
+      if (!items.length) return;
+      var wrap = document.createElement('section');
+      wrap.className = 'surah-group';
+      wrap.innerHTML = '<p class="section-label">' + title + ' · ' + items.length + '</p>';
+      var ul = document.createElement('ul');
+      ul.className = 'dua-list';
+      items.forEach(function (d) { ul.appendChild(duaRow(d, DUAS.indexOf(d), ++n)); });
+      wrap.appendChild(ul);
+      $('duaGroups').appendChild(wrap);
+    });
+    $('duaPlayAll').addEventListener('click', function () {
+      if (dua.all && dua.i !== null && duaAudio.getAttribute('src')) toggleDua();
+      else playDua(0, true);
+    });
+    $('duaRepeat').addEventListener('click', function () {
+      dua.repeat = !dua.repeat;
+      store.set('duaRepeat', dua.repeat);
+      updateDuaUi();
+      toast(dua.repeat ? 'Duo takror-takror oʻqiladi' : 'Takrorlash oʻchirildi');
+    });
+    $('duaDl').addEventListener('click', downloadDuas);
+    updateDuaUi();
+  }
+
+  function duaRow(d, i, n) {
+    var li = document.createElement('li');
+    li.className = 'dua';
+    li.dataset.i = i;
+    li.innerHTML =
+      '<div class="dua-head"><span class="num">' + n + '</span>' +
+      '<span class="meta"><b>' + d.uz + '</b><small>' + duaSource(d) + ' · ' + clock(d.dur) + '</small></span>' +
+      '<button class="listen dua-play" aria-label="Duoni tinglash">' +
+      '<svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>' +
+      '<svg class="i-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg></button></div>' +
+      '<p class="dua-ar" lang="ar" dir="rtl">' + d.ar + '</p>' +
+      '<button class="dua-open"><svg viewBox="0 0 24 24"><path d="M21 5c-1.1-.35-2.3-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/></svg>' +
+      '<span>Mushafda koʻrish</span></button>' +
+      '<span class="dua-bar"></span>';
+    li.querySelector('.dua-play').addEventListener('click', function () {
+      if (dua.i === i && duaAudio.getAttribute('src')) toggleDua(); else playDua(i, false);
+    });
+    li.querySelector('.dua-open').addEventListener('click', function () { showDuaInMushaf(d); });
+    return li;
+  }
+
+  function playDua(i, all) {
+    var d = DUAS[i];
+    var url = duaLocal(d) || duaRemote(d);
+    if (url !== duaLocal(d) && navigator.onLine === false) {
+      toast(isApp ? 'Internet yoʻq. Duolarni oldin yuklab oling.' : 'Internet yoʻq.');
+      return;
+    }
+    dua.i = i;
+    dua.all = all;
+    dua.retries = 0;
+    duaAudio.src = url;
+    var pr = duaAudio.play();
+    if (pr && pr.catch) pr.catch(function () { /* reported by the error event */ });
+    updateDuaUi();
+    var li = document.querySelector('.dua[data-i="' + i + '"]');
+    if (li && all) li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function toggleDua() {
+    if (duaAudio.paused) {
+      var pr = duaAudio.play();
+      if (pr && pr.catch) pr.catch(function () { /* reported by the error event */ });
+    } else {
+      duaAudio.pause();
+    }
+  }
+
+  function showDuaInMushaf(d) {
+    duaAudio.pause();
+    var k = key(d.s, d.a[0]);
+    focus = d.s;
+    openReader(regionPage[k] || bySurah[d.s].page);
+    setTimeout(function () { flash(k); }, 300);
+  }
+
+  function updateDuaUi() {
+    var playing = !duaAudio.paused;
+    Array.prototype.forEach.call(document.querySelectorAll('.dua'), function (li) {
+      var on = Number(li.dataset.i) === dua.i && playing;
+      li.classList.toggle('playing', on);
+      if (Number(li.dataset.i) !== dua.i) li.querySelector('.dua-bar').style.width = '0';
+      li.querySelector('.dua-play').setAttribute('aria-label', on ? 'Toʻxtatish' : 'Duoni tinglash');
+    });
+    $('duaPlayAllText').textContent = dua.all && playing
+      ? 'Toʻxtatish · ' + (dua.i + 1) + ' / ' + DUAS.length
+      : dua.all && dua.i !== null ? 'Davom ettirish · ' + (dua.i + 1) + ' / ' + DUAS.length
+        : 'Hammasini ketma-ket tinglash';
+    $('duaRepeat').setAttribute('aria-pressed', dua.repeat ? 'true' : 'false');
+    $('duaRepeatText').textContent = 'Takrorlash: ' + (dua.repeat ? 'yoqilgan' : 'oʻchiq');
+  }
+
+  duaAudio.addEventListener('play', function () { audio.pause(); mine.pause(); updateDuaUi(); keepAwake(); });
+  duaAudio.addEventListener('playing', function () { dua.retries = 0; });
+  duaAudio.addEventListener('pause', function () { updateDuaUi(); keepAwake(); });
+  duaAudio.addEventListener('timeupdate', function () {
+    var li = document.querySelector('.dua[data-i="' + dua.i + '"]');
+    if (li && duaAudio.duration) {
+      li.querySelector('.dua-bar').style.width = (duaAudio.currentTime / duaAudio.duration * 100) + '%';
+    }
+  });
+  duaAudio.addEventListener('ended', function () {
+    if (dua.repeat) { playDua(dua.i, dua.all); return; }
+    if (dua.all && dua.i + 1 < DUAS.length) { playDua(dua.i + 1, true); return; }
+    dua.all = false;
+    updateDuaUi();
+    keepAwake();
+  });
+  duaAudio.addEventListener('error', function () {
+    var code = duaAudio.error ? duaAudio.error.code : 0;
+    if (!duaAudio.getAttribute('src') || code === 1 || dua.i === null) return;
+    var d = DUAS[dua.i];
+    if (dua.retries < 2 && duaAudio.src === duaRemote(d)) {
+      dua.retries++;
+      if (duaAudio.readyState === 0) switchHost();  // nothing came: try the other host
+      var at = duaAudio.currentTime || 0;
+      duaAudio.src = duaRemote(d);
+      duaAudio.currentTime = at;
+      var pr = duaAudio.play();
+      if (pr && pr.catch) pr.catch(function () { /* reported by the error event */ });
+      return;
+    }
+    dua.all = false;
+    updateDuaUi();
+    toast(navigator.onLine === false ? 'Internet yoʻq.' : 'Duo audiosi yuklanmadi. Yana bir bor bosing.');
+  });
+
+  // Android app: every dua in one go (about 22 MB), so they play without internet
+  function updateDuaDownload() {
+    var btn = $('duaDl');
+    var left = DUAS.filter(function (d) { return !downloads.have[duaKey(d)]; });
+    btn.classList.toggle('hidden', !isApp || !left.length);
+    if (dua.queue) {
+      $('duaDlText').textContent = 'Yuklanmoqda: ' + (DUAS.length - left.length) + ' / ' + DUAS.length + ' · toʻxtatish';
+    } else {
+      $('duaDlText').textContent = 'Duolarni yuklab olish · ' +
+        megabytes(left.reduce(function (sum, d) { return sum + d.size; }, 0));
+    }
+  }
+
+  function downloadDuas() {
+    if (dua.queue) {
+      dua.queue = false;
+      Object.keys(downloads.busy).forEach(function (n) { if (n >= 1000) native.cancelDownload(Number(n)); });
+      updateDuaDownload();
+      return;
+    }
+    dua.queue = true;
+    var queue = DUAS.filter(function (d) { return !downloads.have[duaKey(d)]; });
+    var next = function () {
+      var d = queue.shift();
+      if (!d || !dua.queue) {
+        if (dua.queue) toast('Duolar yuklab olindi');
+        dua.queue = false;
+        updateDuaDownload();
+        return;
+      }
+      downloadSurah(duaKey(d)).then(function (ok) {
+        if (ok) next();
+        else { dua.queue = false; updateDuaDownload(); }
+      });
+    };
+    updateDuaDownload();
+    next();
+  }
+
+  // ---------- tabs
+
+  function showTab(name) {
+    var duas = name === 'duas';
+    $('tabSurahs').setAttribute('aria-selected', duas ? 'false' : 'true');
+    $('tabDuas').setAttribute('aria-selected', duas ? 'true' : 'false');
+    $('surahsPane').classList.toggle('hidden', duas);
+    $('duasPane').classList.toggle('hidden', !duas);
+    store.set('tab', name);
   }
 
   var practice = { on: false, s: null, a: null, lastA: null, recs: [] };
@@ -958,7 +1167,7 @@
     keepAwake();
   }
 
-  mine.addEventListener('play', function () { audio.pause(); updateMineUi(); });
+  mine.addEventListener('play', function () { audio.pause(); duaAudio.pause(); updateMineUi(); });
   mine.addEventListener('pause', updateMineUi);
   mine.addEventListener('ended', updateMineUi);
 
@@ -1125,6 +1334,8 @@
       toast(state.repeat ? 'Takrorlash yoqildi' : 'Takrorlash oʻchirildi');
     });
     $('back').addEventListener('click', closeReader);
+    $('tabSurahs').addEventListener('click', function () { showTab('surahs'); });
+    $('tabDuas').addEventListener('click', function () { showTab('duas'); });
     // pages run right to left: the next page is on the left
     $('turnNext').addEventListener('click', function () { turnPage(1); });
     $('turnPrev').addEventListener('click', function () { turnPage(-1); });
@@ -1171,7 +1382,11 @@
   window.app = {
     onDownload: function (n, progress, status) { onDownload(n, progress, status); },
     back: function () {
-      if (!readerOpen()) return false;
+      if (!readerOpen()) {
+        if ($('duasPane').classList.contains('hidden')) return false;
+        showTab('surahs');
+        return true;
+      }
       if (!$('recPanel').classList.contains('hidden')) closeRecPanel();
       else if (practice.on) exitPractice();
       else closeReader();
@@ -1180,6 +1395,8 @@
   };
 
   renderList();
+  renderDuas();
+  showTab(store.get('tab', 'surahs') === 'duas' ? 'duas' : 'surahs');
   buildPages();
   bindControls();
   setMode(state.mode);

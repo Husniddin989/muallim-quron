@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Muallim Qurʼon</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,7 +16,13 @@
       <p>Qori: Mahmud Xalil al-Husariy</p>
     </div>
   </header>
-  <div class="list-body">
+  <nav class="tabs" role="tablist" aria-label="Boʻlimlar">
+    <div class="tabs-inner">
+      <button id="tabSurahs" role="tab" aria-selected="true" aria-controls="surahsPane">Suralar</button>
+      <button id="tabDuas" role="tab" aria-selected="false" aria-controls="duasPane">Duolar</button>
+    </div>
+  </nav>
+  <div id="surahsPane" class="list-body" role="tabpanel">
     <div class="list-inner">
       <div class="actions">
         <button id="playAll" class="action primary">
@@ -43,6 +46,27 @@
       <div id="surahGroups"></div>
       <p class="list-note">Sahifadagi istalgan oyatni bossangiz, oʻsha oyat oʻqiladi.
         Yuqoridagi mikrofon tugmasi bilan oʻzingiz oʻqib, yozib olishingiz mumkin.</p>
+    </div>
+  </div>
+  <div id="duasPane" class="list-body hidden" role="tabpanel">
+    <div class="list-inner">
+      <div class="actions">
+        <button id="duaPlayAll" class="action primary">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <span id="duaPlayAllText">Hammasini ketma-ket tinglash</span>
+        </button>
+        <button id="duaRepeat" class="action" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg>
+          <span id="duaRepeatText">Takrorlash: oʻchiq</span>
+        </button>
+        <button id="duaDl" class="action hidden">
+          <svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
+          <span id="duaDlText">Duolarni yuklab olish</span>
+        </button>
+      </div>
+      <div id="duaGroups"></div>
+      <p class="list-note">Har bir duo ostida u qaysi sura va oyatdan olingani yozilgan.
+        «Mushafda koʻrish» duoni mushaf sahifasida ochadi.</p>
     </div>
   </div>
 </section>
@@ -142,6 +166,7 @@
 <div id="toast" class="hidden" role="status" aria-live="polite"></div>
 
 <script src="data.js"></script>
+<script src="duas.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

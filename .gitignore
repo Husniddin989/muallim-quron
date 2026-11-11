@@ -4,6 +4,9 @@
 /*.apk
 /*.textClipping
 /sayt/
+# tools/duas.py natijasi: duo audiolari R2 ga yuklanadi, repoga emas
+/duolar/
+/duolar.zip
 
 # Imzo kaliti: hech qachon repoga qo'ymang
 android/keystore.properties

@@ -65,6 +65,22 @@
   color-scheme: dark;
 }
 
+@font-face {
+  font-family: "Amiri";
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/amiri-arabic-400.woff2) format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E,
+    U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+  font-family: "Amiri";
+  font-weight: 700;
+  font-display: swap;
+  src: url(fonts/amiri-latin-700.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F;
+}
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 html, body {
@@ -282,6 +298,91 @@ svg { width: 24px; height: 24px; fill: currentColor; flex: none; }
 .dl.busy { color: var(--brand-text); }
 .dl.armed { width: auto; padding: 0 10px; color: var(--rec); font-size: 13px; }
 .list-note { margin: 0; color: var(--muted); font-size: 13px; text-align: center; }
+
+/* tabs: Suralar | Duolar */
+.tabs {
+  flex: none;
+  background: var(--brand);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.tabs-inner { max-width: 960px; margin: 0 auto; display: flex; }
+.tabs button {
+  flex: 1;
+  height: 44px;
+  color: var(--brand-ink);
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.7;
+  border-bottom: 3px solid transparent;
+}
+.tabs button[aria-selected="true"] { opacity: 1; border-bottom-color: var(--gold); }
+.tabs button:hover { opacity: 1; }
+
+/* duas */
+#duaGroups { display: grid; gap: 16px; }
+.dua-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 10px;
+}
+.dua {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 8px 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.dua.playing { border-color: var(--gold); }
+.dua-head { display: flex; align-items: center; gap: 12px; }
+.dua-ar {
+  margin: 4px 6px 2px 0;
+  padding-left: 6px;
+  font-family: var(--font-arabic);
+  font-size: 25px;
+  line-height: 2;
+  direction: rtl;
+  text-align: right;
+  color: var(--ink);
+  -webkit-user-select: text;
+  user-select: text;
+}
+.dua-open {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px 0 6px;
+  margin-left: -6px;
+  border-radius: 18px;
+  color: var(--brand-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.dua-open svg { width: 18px; height: 18px; }
+.dua-open:hover { background: var(--brand-soft); }
+.dua-play .i-pause { display: none; }
+.dua.playing .dua-play .i-play { display: none; }
+.dua.playing .dua-play .i-pause { display: block; }
+.dua-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 0;
+  background: var(--gold);
+}
+.action[aria-pressed="true"] { border-color: var(--gold); }
+.action[aria-pressed="true"] svg { color: var(--gold); }
 
 /* reader */
 #reader { background: var(--desk); }
