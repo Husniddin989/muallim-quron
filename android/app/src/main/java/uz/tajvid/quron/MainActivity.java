@@ -3,6 +3,8 @@ package uz.tajvid.quron;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -119,6 +121,18 @@ public class MainActivity extends Activity {
         });
     }
 
+    private boolean systemNight() {
+        return (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    // the phone switched between light and dark: the page follows it when set to "auto"
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (web != null) web.evaluateJavascript("window.app && window.app.onSystemTheme && window.app.onSystemTheme()", null);
+    }
+
     @Override
     protected void onDestroy() {
         downloader.shutdownNow();
@@ -189,6 +203,25 @@ public class MainActivity extends Activity {
                 } else {
                     getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 }
+            });
+        }
+
+        /** true while the phone's system theme is dark */
+        @JavascriptInterface
+        public boolean nightMode() {
+            return systemNight();
+        }
+
+        /** the page's theme changed: colour the window and the system bars to match */
+        @JavascriptInterface
+        public void setDark(boolean dark) {
+            runOnUiThread(() -> {
+                int bars = dark ? Color.parseColor("#0D4A31") : getColor(R.color.green);
+                int back = dark ? Color.parseColor("#0A110D") : getColor(R.color.cream);
+                getWindow().setStatusBarColor(bars);
+                getWindow().setNavigationBarColor(bars);
+                getWindow().getDecorView().setBackgroundColor(back);
+                web.setBackgroundColor(back);
             });
         }
 

@@ -26,6 +26,8 @@ Butun Qurʼon: 114 sura, 6236 oyat, mushafning 604 sahifasi.
 - **Duolar** boʻlimi: Qurʼondagi 57 ta duo (27 tasi «Rabbanā» bilan boshlanadi) Husariy qiroatida,
   arabcha matni, maʼnosi (Shayx Muhammad Sodiq Muhammad Yusuf tarjimasi, quran.com dan) va qaysi oyatdan olingani bilan. Bittasini yoki hammasini ketma-ket tinglash, takrorlash,
   «Mushafda koʻrish». Ilovada duolarni (22 MB) bir tugma bilan yuklab olish mumkin.
+- **Qorongʻi mavzu**: sarlavhadagi tugma bilan avtomatik (telefon sozlamasi boʻyicha), qorongʻi yoki yorugʻ.
+  Qorongʻida mushaf sahifasi ham qorayadi, tajvid ranglari saqlanadi.
 - Suralar roʻyxatida nomi (oʻzbekcha yoki arabcha) yoki raqami boʻyicha qidiruv.
 
 ## Tuzilishi

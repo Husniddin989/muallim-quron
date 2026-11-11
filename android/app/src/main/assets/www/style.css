@@ -41,7 +41,9 @@
     --tap: rgba(120, 200, 150, 0.25);
     --toast-bg: rgba(230, 240, 234, 0.95);
     --toast-ink: #0e1612;
-    --page-filter: brightness(0.92);
+    --page-filter: invert(0.9) hue-rotate(180deg) saturate(1.3);
+    --hl-blend: screen;
+    --hl: rgba(140, 105, 0, 0.55);
     color-scheme: dark;
   }
 }
@@ -61,7 +63,9 @@
   --tap: rgba(120, 200, 150, 0.25);
   --toast-bg: rgba(230, 240, 234, 0.95);
   --toast-ink: #0e1612;
-  --page-filter: brightness(0.92);
+  --page-filter: invert(0.9) hue-rotate(180deg) saturate(1.3);
+    --hl-blend: screen;
+    --hl: rgba(140, 105, 0, 0.55);
   color-scheme: dark;
 }
 
@@ -430,7 +434,7 @@ svg { width: 24px; height: 24px; fill: currentColor; flex: none; }
   cursor: pointer;
   transition: background-color 0.2s;
 }
-.rg.on { background: var(--hl); mix-blend-mode: multiply; }
+.rg.on { background: var(--hl); mix-blend-mode: var(--hl-blend, multiply); }
 .rg.tap { background: var(--tap); }
 
 /* open-book spread on wide landscape screens */

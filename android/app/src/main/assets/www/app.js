@@ -1076,6 +1076,50 @@
     next();
   }
 
+  // ---------- theme: automatic (follows the phone), dark or light
+
+  var THEME_ORDER = ['auto', 'dark', 'light'];
+  var THEME_TEXT = {
+    auto: 'Mavzu: avtomatik (telefon sozlamasi boʻyicha)',
+    dark: 'Mavzu: qorongʻi',
+    light: 'Mavzu: yorugʻ'
+  };
+  var THEME_ICON = {
+    auto: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18V4a8 8 0 0 1 0 16z"/></svg>',
+    dark: '<svg viewBox="0 0 24 24"><path d="M12.3 2a10 10 0 1 0 9.7 12.5A8 8 0 0 1 12.3 2z"/></svg>',
+    light: '<svg viewBox="0 0 24 24"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM11 1h2v3h-2zm0 19h2v3h-2zM3.5 4.9l1.4-1.4L7 5.6 5.6 7zm13.4 13.5 1.4-1.4 2.1 2.1-1.4 1.4zM1 11h3v2H1zm19 0h3v2h-3zM3.5 19.1l2.1-2.1L7 18.4l-2.1 2.1zM17 5.6l2.1-2.1 1.4 1.4L18.4 7z"/></svg>'
+  };
+  var theme = store.get('theme', 'auto');
+  if (THEME_ORDER.indexOf(theme) < 0) theme = 'auto';
+  var systemDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+  function applyTheme() {
+    var dark = theme === 'dark';
+    if (theme === 'auto') {
+      dark = native && native.nightMode ? native.nightMode() : !!(systemDark && systemDark.matches);
+    }
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', dark ? '#0d4a31' : '#0b5d3b');
+    if (native && native.setDark) native.setDark(dark);
+    $('themeBtn').innerHTML = THEME_ICON[theme];
+    $('themeBtn').setAttribute('aria-label', THEME_TEXT[theme] + '. Oʻzgartirish uchun bosing');
+    $('themeBtn').title = THEME_TEXT[theme];
+  }
+
+  function nextTheme() {
+    theme = THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
+    store.set('theme', theme);
+    applyTheme();
+    toast(THEME_TEXT[theme]);
+  }
+
+  if (systemDark) {
+    var onSystem = function () { if (theme === 'auto') applyTheme(); };
+    if (systemDark.addEventListener) systemDark.addEventListener('change', onSystem);
+    else if (systemDark.addListener) systemDark.addListener(onSystem);
+  }
+
   // ---------- tabs
 
   function showTab(name) {
@@ -1419,6 +1463,7 @@
       toast(state.repeat ? 'Takrorlash yoqildi' : 'Takrorlash oʻchirildi');
     });
     $('back').addEventListener('click', closeReader);
+    $('themeBtn').addEventListener('click', nextTheme);
     $('tabSurahs').addEventListener('click', function () { showTab('surahs'); });
     $('tabDuas').addEventListener('click', function () { showTab('duas'); });
     // pages run right to left: the next page is on the left
@@ -1466,6 +1511,7 @@
   // called by the Android back button; returns true when handled
   window.app = {
     onDownload: function (n, progress, status) { onDownload(n, progress, status); },
+    onSystemTheme: function () { if (theme === 'auto') applyTheme(); },
     back: function () {
       if (!readerOpen()) {
         if ($('duasPane').classList.contains('hidden')) return false;
@@ -1479,6 +1525,7 @@
     }
   };
 
+  applyTheme();
   renderList();
   renderDuas();
   showTab(store.get('tab', 'surahs') === 'duas' ? 'duas' : 'surahs');

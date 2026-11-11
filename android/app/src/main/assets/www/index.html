@@ -5,7 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Muallim Qurʼon</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#0b5d3b">
 <link rel="stylesheet" href="style.css">
+<script>
+  // set the saved theme before the first paint (app.js keeps it up to date)
+  (function () {
+    try {
+      var t = JSON.parse(localStorage.getItem('tq.theme') || '"auto"');
+      if (t === 'auto') {
+        t = window.Android && window.Android.nightMode ? (window.Android.nightMode() ? 'dark' : 'light')
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      }
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) { /* the stylesheet follows the system */ }
+  })();
+</script>
 </head>
 <body>
 
@@ -15,6 +29,7 @@
       <h1>Muallim Qurʼon</h1>
       <p>Qori: Mahmud Xalil al-Husariy</p>
     </div>
+    <button id="themeBtn" class="icon" aria-label="Mavzu"></button>
   </header>
   <nav class="tabs" role="tablist" aria-label="Boʻlimlar">
     <div class="tabs-inner">
