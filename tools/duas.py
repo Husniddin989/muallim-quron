@@ -22,6 +22,7 @@ titles) and <out_dir>/tinglash.html, a page for listening through them all.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import zipfile
@@ -423,7 +424,29 @@ def write_page(out, manifest):
         f.write(PAGE.replace('__COUNT__', str(len(manifest))).replace('__ROWS__', '\n'.join(rows)))
 
 
-def export(out, www):
+# Meanings: Shaykh Muhammad Sodiq Muhammad Yusuf's translation of the meanings
+# (Latin script), as quran.com publishes it. Taken word for word, footnote marks dropped.
+MEANING_URL = 'https://api.qurancdn.com/api/qdc/verses/by_key/{s}:{a}?translations=55'
+MEANING_SOURCE = 'Shayx Muhammad Sodiq Muhammad Yusuf tarjimasi'
+
+
+def meaning(s, a, cache):
+    path = os.path.join(cache, f'uz55-{s:03d}{a:03d}.json')
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        subprocess.run(['curl', '-sfL', '--retry', '3', '--max-time', '60', '-A', 'Mozilla/5.0',
+                        '-o', path, MEANING_URL.format(s=s, a=a)], check=True)
+    tr = json.load(open(path, encoding='utf-8'))['verse']['translations']
+    if len(tr) != 1 or tr[0]['resource_id'] != 55:
+        raise SystemExit(f'no Muhammad Sodiq translation for {s}:{a}')
+    text = re.sub(r'<sup[^>]*>.*?</sup>', '', tr[0]['text'])
+    if '<' in text:
+        raise SystemExit(f'unexpected markup in {s}:{a}: {text}')
+    # the site writes oʻ/gʻ with a backtick and the tutuq belgisi with an apostrophe
+    text = text.replace('`', 'ʻ').replace("'", 'ʼ')
+    return ' '.join(text.split())
+
+
+def export(out, www, cache=None):
     """Writes the dua list for the app: www/duas.js."""
     manifest = json.load(open(os.path.join(out, 'duolar.json'), encoding='utf-8'))
     order = [d[0] for d in DUAS]
@@ -432,7 +455,12 @@ def export(out, www):
     duas = [{'id': m['id'], 'g': 0 if i < RABBANA_COUNT else 1, 's': m['s'], 'a': m['a'],
              'uz': m['uz'], 'ar': m['ar'], 'dur': m['dur'], 'size': m['size']}
             for i, m in enumerate(manifest)]
+    if cache:
+        os.makedirs(cache, exist_ok=True)
+        for d in duas:
+            d['m'] = [meaning(d['s'], a, cache) for a in range(d['a'][0], d['a'][1] + 1)]
     with open(os.path.join(www, 'duas.js'), 'w', encoding='utf-8') as f:
+        f.write(f'// meanings (m): {MEANING_SOURCE}, quran.com\n')
         f.write('window.DUAS = ')
         json.dump(duas, f, ensure_ascii=False, separators=(',', ':'))
         f.write(';\n')
@@ -441,7 +469,8 @@ def export(out, www):
 
 def main():
     if sys.argv[1] == '--export':
-        export(sys.argv[2], sys.argv[3])
+        # optional 4th argument: a cache folder; with it the Uzbek meanings are added
+        export(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else None)
         return
     cache, out = sys.argv[1], sys.argv[2]
     os.makedirs(out, exist_ok=True)

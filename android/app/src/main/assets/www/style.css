@@ -683,3 +683,26 @@ svg { width: 24px; height: 24px; fill: currentColor; flex: none; }
 
 /* a dua opened in the mushaf: the reading-mode chip does not apply */
 .dua-view #mode { visibility: hidden; }
+
+/* dua meaning (Muhammad Sodiq Muhammad Yusuf) */
+.dua-mean { margin: 0 6px 2px 0; font-size: 15px; line-height: 1.55; }
+.dua-mean summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px 0 6px;
+  margin-left: -6px;
+  border-radius: 18px;
+  color: var(--brand-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.dua-mean summary::-webkit-details-marker { display: none; }
+.dua-mean summary::before { content: "▸"; transition: transform 0.15s; }
+.dua-mean[open] summary::before { transform: rotate(90deg); }
+.dua-mean summary:hover { background: var(--brand-soft); }
+.dua-mean p { margin: 4px 0 8px; color: var(--ink); -webkit-user-select: text; user-select: text; }
+.dua-mean .dua-src { margin: 0 0 4px; color: var(--muted); font-size: 12px; }
