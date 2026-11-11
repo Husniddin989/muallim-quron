@@ -680,3 +680,6 @@ svg { width: 24px; height: 24px; fill: currentColor; flex: none; }
   100% { box-shadow: 0 0 0 16px rgba(214, 54, 42, 0); }
 }
 @keyframes blink { to { visibility: hidden; } }
+
+/* a dua opened in the mushaf: the reading-mode chip does not apply */
+.dua-view #mode { visibility: hidden; }
